@@ -1,0 +1,16 @@
+body{
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 10px;
+    color: rgb(145, 136, 136);
+}
+
+h6{
+    color: black;
+}
+
+button{
+    background-color: rgb(28, 39, 39);
+    border: none;
+    padding: 10px 15px;
+}
