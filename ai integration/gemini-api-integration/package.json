@@ -1,0 +1,13 @@
+{
+  "name":"learn",
+  "version": "1.0.0",
+  "main":"index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@google/genai": "^1.35.0",
+    "dotenv": "^17.2.3"
+  }
+}
