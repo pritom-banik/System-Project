@@ -6,7 +6,7 @@
   "action": {
     "default_popup": "popup.html"
   },
-  "permissions": ["activeTab", "scripting"],
+  "permissions": ["activeTab", "scripting","storage"],
   "content_scripts": [
     {
       "js": ["scripts/content.js"],
@@ -14,5 +14,9 @@
         "https://www.youtube.com/*"
       ]
     }
-  ]
+  ],
+  "background": {
+    "service_worker": "scripts/background.js",
+    "type": "module"
+  }
 }
