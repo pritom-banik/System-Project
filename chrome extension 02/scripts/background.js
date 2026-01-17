@@ -1,59 +1,72 @@
-
-console.log("Background service worker started......");
-
-
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "VIDEO_TITLES") {
-    console.log("Received video title:", message.title);
-    console.log("Received video titles:", message.data);
+    console.log("Received single title:", message.title);
+    console.log("Received all titles:", message.data);
+    const mainTitle = message.title;
+    const suggestedTitles = message.data;
 
-    generateSummary(message.title,message.data)
-      .then((result) => {
-        console.log("Gemini response:", result);
-        sendResponse({ success: true, result });
-      })
-      .catch((error) => {
-        console.error("!!!!!!!!!Gemini error:", error);
-        sendResponse({ success: false, error: error.message });
-      });
+    //===========================================
 
+    const myHeaders = new Headers();
+    myHeaders.append(
+      "x-goog-api-key",
+      "AIzaSyDCA4afppgQMDW3VZ8kg698uauLCuXVHnY"
+    );
+    myHeaders.append("Content-Type", "application/json");
 
-    return true;
+    const raw = JSON.stringify({
+      contents: [
+        {
+          parts: [
+            {
+              text: `You are analyzing YouTube video title similarity.
+
+Main video title: "${mainTitle}"
+
+Suggested video titles:
+${suggestedTitles}
+
+Task:
+Return ONLY a JSON array of indices (numbers) for suggested titles that are semantically similar to the main title.
+
+Criteria for similarity:
+- Same topic or subject matter
+- Same technology/tools discussed
+- Same problem being solved
+- Similar use case or application
+
+Ignore titles that are:
+- Different topics
+- Tangentially related
+- Generic recommendations
+
+Response format (valid JSON array only):
+[0, 5, 12]
+
+Your response:`,
+            },
+          ],
+        },
+      ],
+    });
+
+    const requestOptions = {
+      method: "POST",
+      headers: myHeaders,
+      body: raw,
+      redirect: "follow",
+    };
+
+    fetch(
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent",
+      requestOptions
+    )
+      .then((response) => response.json())
+      .then((result) => console.log(result))
+      .catch((error) => console.error(error));
+    //console.log("this is result........= "+result);
   }
+
+  
 });
 
-
-async function generateSummary(videoTitle,titles) {
-  const API_KEY = "AIzaSyDp54uOFr0ufnzp43J_ncDep0E2Cc57vFc"; 
-
-  const prompt = `
-Summarize the following YouTube video titles in a short paragraph:
-
-${titles.map((t, i) => `${i + 1}. ${t}`).join("\n")}
-`;
-
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [{ text: prompt }]
-          }
-        ]
-      })
-    }
-  );
-
-  if (!response.ok) {
-    throw new Error(`HTTP error ${response.status}`);
-  }
-
-  const data = await response.json();
-
-  return data.candidates?.[0]?.content?.parts?.[0]?.text || "No response";
-}

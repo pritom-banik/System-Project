@@ -16,31 +16,7 @@ console.log(channelName);
 
 console.log("Content script loaded, waiting for videos...");
 
-// function getTitles() {
-//   return [...document.querySelectorAll(
-//     'a.yt-lockup-metadata-view-model__title span'
-//   )].map(el => el.innerText);
-// }
-
-// // Try immediately first
-// let titles = getTitles();
-// if (titles.length > 0) {
-//   console.log('Titles:', titles);
-// }
-
-// // Watch for DOM changes
-// const observer = new MutationObserver(() => {
-//   const newTitles = getTitles();
-//   if (newTitles.length > 0 && newTitles.length !== titles.length) {
-//     console.log('Videos loaded/updated:', newTitles);
-//     titles = newTitles;
-//   }
-// });
-
-// observer.observe(document.body, {
-//   childList: true,
-//   subtree: true
-// });
+//================================================
 
 // This message confirms the script is running
 console.log("Script started...");
@@ -70,9 +46,10 @@ var observer = new MutationObserver(function () {
       observer.disconnect();
       console.log("Final titles:", collectedTitles);
 
-      chrome.runtime.sendMessage({ // passing msg to background.js
+      chrome.runtime.sendMessage({
+        // passing msg to background.js
         type: "VIDEO_TITLES",
-        title:videoTitle,
+        title: videoTitle,
         data: collectedTitles,
       });
 
@@ -134,6 +111,13 @@ observer.observe(document.body, {
 // });
 
 //blur the images of the suggested videos
+
+//<img
+ // alt=""
+ // class="ytCoreImageHost ytCoreImageFillParentHeight ytCoreImageFillParentWidth ytCoreImageContentModeScaleAspectFill ytCoreImageLoaded"
+  //src="https://i.ytimg.com/vi/ZEKiIwWv9nM/hqdefault.jpg?sqp=-oaymwEnCNACELwBSFryq4qpAxkIARUAAIhCGAHYAQHiAQoIGBACGAY4AUAB&amp;rs=AOn4CLBttmv67EVjGOQNujQdudyuWN5yPw"
+//></img>;
+
 const observer4 = new MutationObserver(() => {
   document.querySelectorAll(".ytThumbnailViewModelImage img").forEach((img) => {
     // Blur the thumbnail
