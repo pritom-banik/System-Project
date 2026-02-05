@@ -36,6 +36,30 @@ function getVideoTitles() {
 }
 
 var collectedTitles = [];
+var skipvideoarr = [];
+
+
+
+
+
+///===========================================
+//blur the thumbnail
+//==========================================
+
+const blurobserver =() => {
+  var thumbnail=document.querySelectorAll(".ytThumbnailViewModelImage img")
+
+  for(var k=0;k<thumbnail.length;k++){
+    if (!skipvideoarr.includes(k)) {
+      console.log("i = ",k);
+    // Replace thumbnail image
+    var img = thumbnail[k];
+    img.src = chrome.runtime.getURL("images/stop.jpg");
+    }
+  }
+};
+
+//=====================================================
 
 var observer = new MutationObserver(function () {
   var newTitles = getVideoTitles();
@@ -46,12 +70,25 @@ var observer = new MutationObserver(function () {
       observer.disconnect();
       console.log("Final titles:", collectedTitles);
 
-      chrome.runtime.sendMessage({
-        // passing msg to background.js
-        type: "VIDEO_TITLES",
-        title: videoTitle,
-        data: collectedTitles,
-      });
+      chrome.runtime.sendMessage(
+        {
+          // passing msg to background.js
+          type: "VIDEO_TITLES",
+          title: videoTitle,
+          data: collectedTitles,
+        },
+        (response) => {
+          console.log("Response in content:", response.result);
+          skipvideoarr = JSON.parse(response.result);
+          console.log("this is the array : ",skipvideoarr)
+
+          blurobserver();
+          // .observe(document.body, {
+          //   childList: true,
+          //   subtree: true,
+          // });
+        }
+      );
 
       return;
     }
@@ -113,22 +150,9 @@ observer.observe(document.body, {
 //blur the images of the suggested videos
 
 //<img
- // alt=""
- // class="ytCoreImageHost ytCoreImageFillParentHeight ytCoreImageFillParentWidth ytCoreImageContentModeScaleAspectFill ytCoreImageLoaded"
-  //src="https://i.ytimg.com/vi/ZEKiIwWv9nM/hqdefault.jpg?sqp=-oaymwEnCNACELwBSFryq4qpAxkIARUAAIhCGAHYAQHiAQoIGBACGAY4AUAB&amp;rs=AOn4CLBttmv67EVjGOQNujQdudyuWN5yPw"
+// alt=""
+// class="ytCoreImageHost ytCoreImageFillParentHeight ytCoreImageFillParentWidth ytCoreImageContentModeScaleAspectFill ytCoreImageLoaded"
+//src="https://i.ytimg.com/vi/ZEKiIwWv9nM/hqdefault.jpg?sqp=-oaymwEnCNACELwBSFryq4qpAxkIARUAAIhCGAHYAQHiAQoIGBACGAY4AUAB&amp;rs=AOn4CLBttmv67EVjGOQNujQdudyuWN5yPw"
 //></img>;
 
-const observer4 = new MutationObserver(() => {
-  document.querySelectorAll(".ytThumbnailViewModelImage img").forEach((img) => {
-    // Blur the thumbnail
-    img.style.filter = "blur(12px)";
 
-    // Replace thumbnail image
-    img.src = "https://via.placeholder.com/320x180?text=Not+Available";
-  });
-});
-
-observer4.observe(document.body, {
-  childList: true,
-  subtree: true,
-});
