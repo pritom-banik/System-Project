@@ -9,7 +9,7 @@
   "permissions": ["activeTab", "scripting","storage"],
   "content_scripts": [
     {
-      "js": ["scripts/content.js"],
+      "js": ["scripts/content2.js"],
       "matches": [
         "https://www.youtube.com/*"
       ]
