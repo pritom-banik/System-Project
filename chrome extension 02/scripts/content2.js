@@ -38,7 +38,13 @@ var observer = new MutationObserver(() => {
       chrome.runtime.sendMessage({
         type: "NEW_VIDEO",
         title: element.title
-      });
+      },
+    (response) => {
+      let skipvideo = response.result;
+      if(skipvideo){
+        element.dom.style.visibility = "hidden";
+      }
+    });
     }
   });
 });
