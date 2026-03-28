@@ -29,32 +29,30 @@ function cosineSimilarity(a, b) {
 }
 
 // Get embedding from Ollama
-function getEmbedding(title) {
-  return axios
-    .post("http://localhost:11434/api/embeddings", {
-      model: "all-minilm",
-      prompt: title,
-    })
-    .then((response) => response.data.embedding);
+async function getEmbedding(title) {
+  const response = await axios.post("http://localhost:11434/api/embeddings", {
+    model: "all-minilm",
+    prompt: title,
+  });
+  return response.data.embedding;
 }
 
 // Save main video embedding
-app.post("/main", (req, res) => {
+app.post("/main", async (req, res) => {
   console.log("Main title:", req.body);
 
-  getEmbedding(req.body)
-    .then((embedding) => {
-      mainEmbedding = embedding;
-      res.json({ Success: true });
-    })
-    .catch((err) => {
-      console.error(err);
-      res.status(500).json({ Success: false });
-    });
+  try {
+    const embedding = await getEmbedding(req.body);
+    mainEmbedding = embedding;
+    res.json({ Success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ Success: false });
+  }
 });
 
 // Compare suggested video
-app.post("/ans", (req, res) => {
+app.post("/ans", async (req, res) => {
   console.log("Suggested title:", req.body);
 
   if (!mainEmbedding) {
@@ -63,18 +61,17 @@ app.post("/ans", (req, res) => {
       .json({ Success: false, message: "Main title not set" });
   }
 
-  getEmbedding(req.body)
-    .then((suggestedEmbedding) => {
-      const score = cosineSimilarity(mainEmbedding, suggestedEmbedding);
-      console.log("Similarity score:", score);
-      const isValid = score >= 0.15;
+  try {
+    const suggestedEmbedding = await getEmbedding(req.body);
+    const score = cosineSimilarity(mainEmbedding, suggestedEmbedding);
+    console.log("Similarity score:", score);
+    const isValid = score >= 0.15;
 
-      res.json({ Success: isValid, similarity: score });
-    })
-    .catch((err) => {
-      console.error(err);
-      res.status(500).json({ Success: false });
-    });
+    res.json({ Success: isValid, similarity: score });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ Success: false });
+  }
 });
 
 app.listen(port, () => {
