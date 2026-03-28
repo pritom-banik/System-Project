@@ -1,12 +1,105 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="./images/logo.png">
+    <link rel="stylesheet" href="style.css">
     <title>Focus Keeper</title>
 </head>
+
 <body>
-    <h1>Focus Keeper</h1>
-    <p>This is the popup for the Chrome extension.</p>
+    <div class="popup" id="mainPopup">
+        <div class="popup-header">
+            <div class="logo">
+                <img src="./images/logo.png" alt="logo">
+            </div>
+            <div class="header-copy">
+                <h1>Focus Keeper</h1>
+                <p>Always stay focused</p>
+            </div>
+            <div class="active-dot"></div>
+        </div>
+
+
+        <!-- Filter mode -->
+        <div class="section">
+            <div class="section-label">Video suggestion filter</div>
+            <div class="filter-card">
+                <div class="filter-top">
+                    <div class="filter-label"> Show suggested videos based on :</div>
+                    <div class="pill-row">
+                        <div class="pill pill-blue" id="pill-searched" onclick="setFilter('searched')">Searched topic
+                        </div>
+                        <div class="pill pill-ghost" id="pill-watched" onclick="setFilter('watched')">Watched topic
+                        </div>
+                    </div>
+                </div>
+                <div class="filter-input-wrap">
+                    <input class="filter-input" id="filterInput" type="text"
+                        placeholder="e.g. javascript, design, cooking…">
+                </div>
+            </div>
+        </div>
+
+        <!-- Content controls -->
+        <div class="section">
+            <div class="section-label">Content controls</div>
+
+            <div class="toggle-row" onclick="toggle('sw-comments')">
+                <div class="toggle-left">
+                    <div class="t-icon ic-comment">💬</div>
+                    <div>
+                        <div class="t-title">Hide Comments</div>
+                        <div class="t-sub">Hide all comment sections</div>
+                    </div>
+                </div>
+                <div class="switch on" id="sw-comments">
+                    <div class="switch-thumb"></div>
+                </div>
+            </div>
+
+            <div class="toggle-row" onclick="toggle('sw-suggest')">
+                <div class="toggle-left">
+                    <div class="t-icon ic-video">📺</div>
+                    <div>
+                        <div class="t-title">Hide all suggestions</div>
+                        <div class="t-sub">Sidebar &amp; end-screen recommendations</div>
+                    </div>
+                </div>
+                <div class="switch" id="sw-suggest">
+                    <div class="switch-thumb"></div>
+                </div>
+            </div>
+        </div>
+
+
+
+        <!-- Notepad -->
+        <div class="section">
+            <div class="section-label">Note taking</div>
+            <button class="capture-btn" id="captureBtn" onclick="doCapture()">
+                <span></span>
+                <span id="captureLabel">Open Notepad</span>
+                <span class="kbd">📝</span>
+            </button>
+        </div>
+
+        <!-- Open settings -->
+        <div class="section">
+            <div class="settings-row" onclick="openSettings()">
+                <div class="t-icon ic-settings" style="width:26px;height:26px;border-radius:7px;">⚙️</div>
+                <span>Settings &amp; preferences</span>
+                <span class="chevron">›</span>
+            </div>
+        </div>
+
+        <div class="popup-footer">
+            <span class="version">v1.0.0</span>
+            <button class="footer-link">Report issue</button>
+        </div>
+    </div>
 </body>
+
 </html>
