@@ -1,10 +1,10 @@
-This the code of hiding each suggested video : 
+# This the code of hiding each suggested video : 
 
 document.querySelector("yt-lockup-view-model")?.remove();
 
 
 
-get pairs of DOM and title of each suggested videos:
+# get pairs of DOM and title of each suggested videos:
 
 const videos = document.querySelectorAll("yt-lockup-view-model");
 

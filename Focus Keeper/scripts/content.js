@@ -39,12 +39,13 @@ var observer = new MutationObserver(() => {
         type: "NEW_VIDEO",
         title: element.title
       },
-    (response) => {
-      let skipvideo = response.result;
-      if(skipvideo){
-        element.dom.style.visibility = "hidden";
-      }
-    });
+        (response) => {
+          let keepvideo = response.result;
+          if (!keepvideo) {
+            element.dom.style.display = "none";
+            //element.dom.style.visibility = "hidden";
+          }
+        });
     }
   });
 });

@@ -1,6 +1,6 @@
 {
-  "name": "Extension 0.2",
-  "description": "Base Level Extension",
+  "name": "Focus Keeper",
+  "description": "A Chrome extension to help users maintain focus",
   "version": "1.0",
   "manifest_version": 3,
   "action": {
@@ -9,9 +9,9 @@
   "permissions": ["activeTab", "scripting","storage"],
   "content_scripts": [
     {
-      "js": ["scripts/content2.js"],
+      "js": ["scripts/content.js"],
       "matches": [
-        "https://www.youtube.com/*"
+        "*://*.youtube.com/*"
       ]
     }
   ],
