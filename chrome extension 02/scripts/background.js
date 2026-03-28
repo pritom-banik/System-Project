@@ -32,5 +32,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         console.log(isValid, "=>", message.title);
       })
       .catch((error) => console.error("Error:", error));
+
+      if(isValid){
+        sendResponse({ result: true });
+      }
+      sendResponse({ result: false });
+      return true;
   }
 });

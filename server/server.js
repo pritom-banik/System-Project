@@ -10,7 +10,6 @@ app.use(express.text());
 
 let mainEmbedding = null;
 
-// Cosine similarity
 function cosineSimilarity(a, b) {
   if (a.length !== b.length) {
     throw new Error("Vector dimension mismatch");
@@ -30,50 +29,52 @@ function cosineSimilarity(a, b) {
 }
 
 // Get embedding from Ollama
-async function getEmbedding(title) {
-  const response = await axios.post("http://localhost:11434/api/embeddings", {
-    model: "all-minilm",
-    prompt: title
-  });
-
-  return response.data.embedding;
+function getEmbedding(title) {
+  return axios
+    .post("http://localhost:11434/api/embeddings", {
+      model: "all-minilm",
+      prompt: title,
+    })
+    .then((response) => response.data.embedding);
 }
 
 // Save main video embedding
-app.post("/main", async (req, res) => {
-  try {
-    console.log("Main title:", req.body);
-    mainEmbedding = await getEmbedding(req.body);
-    res.json({ Success: true });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ Success: false });
-  }
+app.post("/main", (req, res) => {
+  console.log("Main title:", req.body);
+
+  getEmbedding(req.body)
+    .then((embedding) => {
+      mainEmbedding = embedding;
+      res.json({ Success: true });
+    })
+    .catch((err) => {
+      console.error(err);
+      res.status(500).json({ Success: false });
+    });
 });
 
 // Compare suggested video
-app.post("/ans", async (req, res) => {
-  try {
-    console.log("Suggested title:", req.body);
+app.post("/ans", (req, res) => {
+  console.log("Suggested title:", req.body);
 
-    if (!mainEmbedding) {
-      return res.status(400).json({ Success: false, message: "Main title not set" });
-    }
-
-
-    const suggestedEmbedding = await getEmbedding(req.body);
-
-    const score = cosineSimilarity(mainEmbedding, suggestedEmbedding);
-    console.log("Similarity score:", score);
-
-    const isValid = score >= 0.15;
-
-    res.json({ Success: isValid, similarity: score });
-
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ Success: false });
+  if (!mainEmbedding) {
+    return res
+      .status(400)
+      .json({ Success: false, message: "Main title not set" });
   }
+
+  getEmbedding(req.body)
+    .then((suggestedEmbedding) => {
+      const score = cosineSimilarity(mainEmbedding, suggestedEmbedding);
+      console.log("Similarity score:", score);
+      const isValid = score >= 0.15;
+
+      res.json({ Success: isValid, similarity: score });
+    })
+    .catch((err) => {
+      console.error(err);
+      res.status(500).json({ Success: false });
+    });
 });
 
 app.listen(port, () => {
