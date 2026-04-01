@@ -30,9 +30,9 @@
                 <div class="filter-top">
                     <div class="filter-label"> Show suggested videos based on :</div>
                     <div class="pill-row">
-                        <div class="pill pill-blue" id="pill-searched" onclick="setFilter('searched')">Searched topic
+                        <div class="pill pill-blue" id="pill-searched">Searched topic
                         </div>
-                        <div class="pill pill-ghost" id="pill-watched" onclick="setFilter('watched')">Watched topic
+                        <div class="pill pill-ghost" id="pill-watched">Watched topic
                         </div>
                     </div>
                 </div>
@@ -47,7 +47,7 @@
         <div class="section">
             <div class="section-label">Content controls</div>
 
-            <div class="toggle-row" onclick="toggle('sw-comments')">
+            <div class="toggle-row" id="toggle-comments">
                 <div class="toggle-left">
                     <div class="t-icon ic-comment">💬</div>
                     <div>
@@ -60,7 +60,7 @@
                 </div>
             </div>
 
-            <div class="toggle-row" onclick="toggle('sw-suggest')">
+            <div class="toggle-row" id="toggle-suggest">
                 <div class="toggle-left">
                     <div class="t-icon ic-video">📺</div>
                     <div>
@@ -79,7 +79,7 @@
         <!-- Notepad -->
         <div class="section">
             <div class="section-label">Note taking</div>
-            <button class="capture-btn" id="captureBtn" onclick="doCapture()">
+            <button class="capture-btn" id="captureBtn" type="button">
                 <span></span>
                 <span id="captureLabel">Open Notepad</span>
                 <span class="kbd">📝</span>
@@ -88,7 +88,7 @@
 
         <!-- Open settings -->
         <div class="section">
-            <div class="settings-row" onclick="openSettings()">
+            <div class="settings-row" id="openSettingsBtn">
                 <div class="t-icon ic-settings" style="width:26px;height:26px;border-radius:7px;">⚙️</div>
                 <span>Settings &amp; preferences</span>
                 <span class="chevron">›</span>
@@ -99,7 +99,9 @@
             <span class="version">v1.0.0</span>
             <button class="footer-link">Report issue</button>
         </div>
+        <div class="popup-status" id="statusMessage" hidden></div>
     </div>
+    <script src="scripts/popup.js"></script>
 </body>
 
 </html>
