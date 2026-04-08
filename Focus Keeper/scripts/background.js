@@ -14,6 +14,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         console.log("Response:", data);
       } catch (error) {
         console.error("Error:", error);
+        return true;
       }
     })();
   }
@@ -21,7 +22,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "NEW_VIDEO") {
-    let isValid = true;
+    // We immediately execute the async function
     (async () => {
       try {
         const response = await fetch("http://localhost:8000/ans", {
@@ -33,21 +34,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         });
 
         const data = await response.json();
-        if(!data.Success){
-          isValid = false;
-        }
-        console.log(isValid, "=>", message.title);
+        
+        // This log will appear in the BACKGROUND script console
+        console.log(`Title: ${message.title} | Score: ${data.similarity} | Success: ${data.Success}`);
+        
+        // Send the actual server result back to the content script
+        sendResponse({ result: data.Success, score: data.similarity });
       } catch (error) {
-        console.error("Error:", error);
-      }
-
-      if (isValid) {
-        sendResponse({ result: true });
-      } else {
-        sendResponse({ result: false });
+        console.error("Fetch Error:", error);
+        // Default to showing the video if the server is down
+        sendResponse({ result: true }); 
       }
     })();
 
-    return true;
+    return true; // Keep the channel open for the async response
   }
 });
