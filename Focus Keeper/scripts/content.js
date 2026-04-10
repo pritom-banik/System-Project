@@ -273,6 +273,7 @@ async function saveCurrentNote(payload) {
   await setStorage({ [storageKey]: payload });
 }
 
+//This give the style to the note window and its components
 function injectNotesStyles() {
   if (document.getElementById(NOTES_STYLE_ID)) {
     return;
@@ -832,6 +833,7 @@ function trapEditorKeyboardEvents(element) {
   element.addEventListener("keypress", stopEvent);
 }
 
+//Note is building here
 function buildNotesWindow() {
   if (noteApp?.root) {
     return noteApp;
@@ -1018,20 +1020,31 @@ console.log("YouTube Video Title:", videoTitle);
 chrome.runtime.sendMessage({ type: "VIDEO_TITLE", title: videoTitle });
 
 function extractVideoInfo() {
+ // console.log("This is the suggestion video extraction function ");
+  
   const videos = document.querySelectorAll("yt-lockup-view-model");
 
   return [...videos].map((video) => {
-    const titleEl = video.querySelector("a.yt-lockup-metadata-view-model__title");
+    // 1. Find the title link using the exact class from your HTML
+    // Note: YouTube uses 'ytLockupMetadataViewModelTitle' (CamelCase)
+    const titleLink = video.querySelector("a.ytLockupMetadataViewModelTitle");
+   // console.log(titleLink);
+
+    // 2. Extract the title (either from the 'title' attribute or the inner span)
+    const titleText = titleLink 
+      ? (titleLink.getAttribute("title") || titleLink.innerText.trim()) 
+      : null;
 
     return {
       dom: video,
-      title: titleEl ? titleEl.textContent.trim() : null,
-      link: titleEl ? titleEl.href : null,
+      title: titleText,
+      link: titleLink ? titleLink.href : null,
     };
   });
 }
 
 const observer = new MutationObserver(() => {
+ // console.log("THe mutation observer is working and checking for new videos...");
   const allVideoInfo = extractVideoInfo();
 
   allVideoInfo.forEach((element, index) => {

@@ -13,7 +13,7 @@ Make sure the following are installed on your system:
 - Node.js (v16 or later recommended)
 - Google Chrome
 - Ollama
-- Local model **all-minilm:latest**
+- Local model **bge-m3:latest**
 
 ---
 

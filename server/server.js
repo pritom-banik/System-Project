@@ -30,11 +30,16 @@ function cosineSimilarity(a, b) {
 
 // Get embedding from Ollama
 async function getEmbedding(title) {
-  const response = await axios.post("http://localhost:11434/api/embeddings", {
-    model: "all-minilm",
-    prompt: title,
-  });
-  return response.data.embedding;
+  try {
+    const response = await axios.post("http://localhost:11434/api/embeddings", {
+      model: "bge-m3:latest", // Updated from all-minilm
+      prompt: title,
+    });
+    return response.data.embedding;
+  } catch (error) {
+    console.error("Ollama Request Failed:", error.message);
+    throw error;
+  }
 }
 
 // Save main video embedding
@@ -65,7 +70,7 @@ app.post("/ans", async (req, res) => {
     const suggestedEmbedding = await getEmbedding(req.body);
     const score = cosineSimilarity(mainEmbedding, suggestedEmbedding);
     console.log("Similarity score:", score);
-    const isValid = score >= 0.15;
+    const isValid = score >= 0.40;
 
     res.json({ Success: isValid, similarity: score });
   } catch (err) {
