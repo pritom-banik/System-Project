@@ -3,12 +3,11 @@ const cors = require("cors");
 const axios = require("axios");
 
 const app = express();
-const port = 8000;
+const port = process.env.PORT || 8000;
 
 app.use(cors());
-app.use(express.text());
+app.use(express.json());
 
-let mainEmbedding = null;
 
 function cosineSimilarity(a, b) {
   if (a.length !== b.length) {
@@ -32,7 +31,7 @@ function cosineSimilarity(a, b) {
 async function getEmbedding(title) {
   try {
     const response = await axios.post("http://localhost:11434/api/embeddings", {
-      model: "bge-m3:latest", // Updated from all-minilm
+      model: "bge-m3:latest", 
       prompt: title,
     });
     return response.data.embedding;
@@ -42,35 +41,21 @@ async function getEmbedding(title) {
   }
 }
 
-// Save main video embedding
-app.post("/main", async (req, res) => {
-  console.log("Main title:", req.body);
 
-  try {
-    const embedding = await getEmbedding(req.body);
-    mainEmbedding = embedding;
-    res.json({ Success: true });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ Success: false });
-  }
-});
 
 // Compare suggested video
 app.post("/ans", async (req, res) => {
-  console.log("Suggested title:", req.body);
-
-  if (!mainEmbedding) {
-    return res
-      .status(400)
-      .json({ Success: false, message: "Main title not set" });
-  }
+  //console.log("Suggested title:", req.body);
+  const { maintitle, title } = req.body;
+  console.log("Maintitle:", maintitle);
+console.log("Title:", title);
 
   try {
-    const suggestedEmbedding = await getEmbedding(req.body);
+    const mainEmbedding=await getEmbedding(maintitle)
+    const suggestedEmbedding = await getEmbedding(title);
     const score = cosineSimilarity(mainEmbedding, suggestedEmbedding);
-    console.log("Similarity score:", score);
-    const isValid = score >= 0.40;
+    console.log("Suggested title:", req.body," Similarity score:", score);
+    const isValid = score >= 0.35;
 
     res.json({ Success: isValid, similarity: score });
   } catch (err) {

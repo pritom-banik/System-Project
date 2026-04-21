@@ -22,28 +22,31 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "NEW_VIDEO") {
-    // We immediately execute the async function
+    console.log( message);
     (async () => {
       try {
         const response = await fetch("http://localhost:8000/ans", {
           method: "POST",
           headers: {
-            "Content-Type": "text/plain",
+            "Content-Type": "application/json",
           },
-          body: message.title,
+          body: JSON.stringify({
+            maintitle: message.video_title,
+            title: message.title,
+          }),
         });
 
         const data = await response.json();
-        
-        // This log will appear in the BACKGROUND script console
+
+
         console.log(`Title: ${message.title} | Score: ${data.similarity} | Success: ${data.Success}`);
-        
+
         // Send the actual server result back to the content script
         sendResponse({ result: data.Success, score: data.similarity });
       } catch (error) {
         console.error("Fetch Error:", error);
-        // Default to showing the video if the server is down
-        sendResponse({ result: true }); 
+        
+        sendResponse({ result: true });
       }
     })();
 

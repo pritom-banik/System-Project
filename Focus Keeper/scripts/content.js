@@ -1017,22 +1017,22 @@ function getYouTubeVideoTitle() {
 const videoTitle = getYouTubeVideoTitle();
 console.log("YouTube Video Title:", videoTitle);
 
-chrome.runtime.sendMessage({ type: "VIDEO_TITLE", title: videoTitle });
+//chrome.runtime.sendMessage({ type: "VIDEO_TITLE", title: videoTitle });
 
 function extractVideoInfo() {
- // console.log("This is the suggestion video extraction function ");
-  
+  // console.log("This is the suggestion video extraction function ");
+
   const videos = document.querySelectorAll("yt-lockup-view-model");
 
   return [...videos].map((video) => {
     // 1. Find the title link using the exact class from your HTML
     // Note: YouTube uses 'ytLockupMetadataViewModelTitle' (CamelCase)
     const titleLink = video.querySelector("a.ytLockupMetadataViewModelTitle");
-   // console.log(titleLink);
+    // console.log(titleLink);
 
     // 2. Extract the title (either from the 'title' attribute or the inner span)
-    const titleText = titleLink 
-      ? (titleLink.getAttribute("title") || titleLink.innerText.trim()) 
+    const titleText = titleLink
+      ? (titleLink.getAttribute("title") || titleLink.innerText.trim())
       : null;
 
     return {
@@ -1043,23 +1043,35 @@ function extractVideoInfo() {
   });
 }
 
+
+//======================= The Dom manipulation for suggested videos ===================================//
 const observer = new MutationObserver(() => {
- // console.log("THe mutation observer is working and checking for new videos...");
+  // console.log("THe mutation observer is working and checking for new videos...");
   const allVideoInfo = extractVideoInfo();
 
   allVideoInfo.forEach((element, index) => {
     if (element.title && !videoInfo.includes(element.title)) {
       videoInfo.push(element.title);
-      console.log(index, "New video found:", element.title);
+
       chrome.runtime.sendMessage(
         {
           type: "NEW_VIDEO",
+          video_title: videoTitle,
           title: element.title,
         },
         (response) => {
           const keepVideo = response?.result;
+          console.log(index, "New video found:", element.title, "Keep video? ", keepVideo);
           if (keepVideo === false) {
-            element.dom.style.display = "none";
+            const el = element.dom;
+
+            el.style.transition = "transform 1s ease, opacity 1s ease";
+            el.style.transform = "translateX(100%)";
+            el.style.opacity = "0";
+
+            setTimeout(() => {
+              el.style.display = "none";
+            }, 400);
           }
         },
       );
