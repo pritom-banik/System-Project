@@ -3,7 +3,7 @@ const cors = require("cors");
 const axios = require("axios");
 
 const app = express();
-const port = 8000;
+const port = process.env.PORT || 8000;
 
 app.use(cors());
 app.use(express.json());
@@ -41,19 +41,7 @@ async function getEmbedding(title) {
   }
 }
 
-// Save main video embedding
-// app.post("/main", async (req, res) => {
-//   console.log("Main title:", req.body);
 
-//   try {
-//     const embedding = await getEmbedding(req.body);
-//     mainEmbedding = embedding;
-//     res.json({ Success: true });
-//   } catch (err) {
-//     console.error(err);
-//     res.status(500).json({ Success: false });
-//   }
-// });
 
 // Compare suggested video
 app.post("/ans", async (req, res) => {
