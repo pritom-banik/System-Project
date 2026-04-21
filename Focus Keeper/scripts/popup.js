@@ -1,15 +1,15 @@
 const STORAGE_KEYS = {
-  filterMode: "focusKeeper.filterMode",
-  filterInput: "focusKeeper.filterInput",
+  filterEnabled: "focusKeeper.filterEnabled",
   hideComments: "focusKeeper.hideComments",
   hideSuggestions: "focusKeeper.hideSuggestions",
+  theme: "focusKeeper.theme",
 };
 
 const DEFAULT_SETTINGS = {
-  [STORAGE_KEYS.filterMode]: "searched",
-  [STORAGE_KEYS.filterInput]: "",
+  [STORAGE_KEYS.filterEnabled]: false,
   [STORAGE_KEYS.hideComments]: true,
   [STORAGE_KEYS.hideSuggestions]: false,
+  [STORAGE_KEYS.theme]: "dark",
 };
 
 let statusTimer = null;
@@ -44,9 +44,7 @@ async function sendMessageToActiveTab(message) {
 
 function showStatus(message) {
   const status = document.getElementById("statusMessage");
-  if (!status) {
-    return;
-  }
+  if (!status) return;
 
   status.hidden = false;
   status.textContent = message;
@@ -58,28 +56,21 @@ function showStatus(message) {
   }, 2800);
 }
 
-function updateFilterPills(mode) {
-  const searched = document.getElementById("pill-searched");
-  const watched = document.getElementById("pill-watched");
-
-  searched.className = `pill ${mode === "searched" ? "pill-blue" : "pill-ghost"}`;
-  watched.className = `pill ${mode === "watched" ? "pill-blue" : "pill-ghost"}`;
-}
-
 function updateSwitch(id, value) {
   const element = document.getElementById(id);
-  element.classList.toggle("on", Boolean(value));
+  if (element) element.classList.toggle("on", Boolean(value));
+}
+
+function applyTheme(theme) {
+  document.body.classList.toggle("light", theme === "light");
+  const btn = document.getElementById("themeToggleBtn");
+  if (btn) btn.textContent = theme === "light" ? "🌙" : "☀️";
 }
 
 function mapSwitchIdToStorage(id) {
-  if (id === "sw-comments") {
-    return STORAGE_KEYS.hideComments;
-  }
-
-  if (id === "sw-suggest") {
-    return STORAGE_KEYS.hideSuggestions;
-  }
-
+  if (id === "sw-filter") return STORAGE_KEYS.filterEnabled;
+  if (id === "sw-comments") return STORAGE_KEYS.hideComments;
+  if (id === "sw-suggest") return STORAGE_KEYS.hideSuggestions;
   return null;
 }
 
@@ -92,27 +83,24 @@ async function syncContentControls() {
   await sendMessageToActiveTab({
     type: "FOCUS_KEEPER_UPDATE_CONTROLS",
     hideComments: settings[STORAGE_KEYS.hideComments] ?? DEFAULT_SETTINGS[STORAGE_KEYS.hideComments],
-    hideSuggestions:
-      settings[STORAGE_KEYS.hideSuggestions] ?? DEFAULT_SETTINGS[STORAGE_KEYS.hideSuggestions],
+    hideSuggestions: settings[STORAGE_KEYS.hideSuggestions] ?? DEFAULT_SETTINGS[STORAGE_KEYS.hideSuggestions],
   });
 }
 
-window.setFilter = async function setFilter(mode) {
-  updateFilterPills(mode);
-  await setStorage({ [STORAGE_KEYS.filterMode]: mode });
-};
-
 window.toggle = async function toggle(id) {
   const storageKey = mapSwitchIdToStorage(id);
-  if (!storageKey) {
-    return;
-  }
+  if (!storageKey) return;
 
   const element = document.getElementById(id);
   const nextValue = !element.classList.contains("on");
   updateSwitch(id, nextValue);
   await setStorage({ [storageKey]: nextValue });
-  await syncContentControls();
+
+  if (id === "sw-filter") {
+    await sendMessageToActiveTab({ type: "FOCUS_KEEPER_SET_FILTER", enabled: nextValue });
+  } else {
+    await syncContentControls();
+  }
 };
 
 window.doCapture = async function doCapture() {
@@ -123,13 +111,12 @@ window.doCapture = async function doCapture() {
 
   const result = await sendMessageToActiveTab({ type: "FOCUS_KEEPER_TOGGLE_NOTEPAD" });
 
-  window.setTimeout(() => {
-    button.classList.remove("capturing");
-    label.textContent = result?.ok === false ? "Open Notepad" : "Toggle Notepad";
-  }, 400);
-
   if (result?.ok === false) {
+    button.classList.remove("capturing");
+    label.textContent = "Open Notepad";
     showStatus(result.reason || "Could not open the notepad.");
+  } else {
+    window.close();
   }
 };
 
@@ -141,22 +128,21 @@ document.addEventListener("DOMContentLoaded", async () => {
   const settings = await getStorage(Object.values(STORAGE_KEYS));
   const merged = { ...DEFAULT_SETTINGS, ...settings };
 
-  updateFilterPills(merged[STORAGE_KEYS.filterMode]);
+  applyTheme(merged[STORAGE_KEYS.theme]);
+  updateSwitch("sw-filter", merged[STORAGE_KEYS.filterEnabled]);
   updateSwitch("sw-comments", merged[STORAGE_KEYS.hideComments]);
   updateSwitch("sw-suggest", merged[STORAGE_KEYS.hideSuggestions]);
 
-  const filterInput = document.getElementById("filterInput");
-  filterInput.value = merged[STORAGE_KEYS.filterInput];
-  filterInput.addEventListener("input", async (event) => {
-    await setStorage({ [STORAGE_KEYS.filterInput]: event.target.value });
+  document.getElementById("themeToggleBtn").addEventListener("click", async () => {
+    const current = document.body.classList.contains("light") ? "light" : "dark";
+    const next = current === "light" ? "dark" : "light";
+    applyTheme(next);
+    await setStorage({ [STORAGE_KEYS.theme]: next });
+    await sendMessageToActiveTab({ type: "FOCUS_KEEPER_SET_THEME", theme: next });
   });
 
-  document.getElementById("pill-searched").addEventListener("click", () => {
-    window.setFilter("searched");
-  });
-
-  document.getElementById("pill-watched").addEventListener("click", () => {
-    window.setFilter("watched");
+  document.getElementById("toggle-filter").addEventListener("click", () => {
+    window.toggle("sw-filter");
   });
 
   document.getElementById("toggle-comments").addEventListener("click", () => {
@@ -173,6 +159,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   document.getElementById("openSettingsBtn").addEventListener("click", () => {
     window.openSettings();
+  });
+
+  document.getElementById("contactBtn").addEventListener("click", () => {
+    showStatus("Reach us at: focuskeeper@example.com");
   });
 
   await syncContentControls();

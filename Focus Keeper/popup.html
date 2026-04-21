@@ -19,26 +19,24 @@
                 <h1>Focus Keeper</h1>
                 <p>Always stay focused</p>
             </div>
+            <button class="theme-toggle-btn" id="themeToggleBtn" title="Toggle theme">🌙</button>
             <div class="active-dot"></div>
         </div>
-
 
         <!-- Filter mode -->
         <div class="section">
             <div class="section-label">Video suggestion filter</div>
-            <div class="filter-card">
-                <div class="filter-top">
-                    <div class="filter-label"> Show suggested videos based on :</div>
-                    <div class="pill-row">
-                        <div class="pill pill-blue" id="pill-searched">Searched topic
-                        </div>
-                        <div class="pill pill-ghost" id="pill-watched">Watched topic
-                        </div>
+
+            <div class="toggle-row" id="toggle-filter">
+                <div class="toggle-left">
+                    <div class="t-icon ic-filter">🔍</div>
+                    <div>
+                        <div class="t-title">Smart Filter</div>
+                        <div class="t-sub">Filter suggestions by video topic</div>
                     </div>
                 </div>
-                <div class="filter-input-wrap">
-                    <input class="filter-input" id="filterInput" type="text"
-                        placeholder="e.g. javascript, design, cooking…">
+                <div class="switch" id="sw-filter">
+                    <div class="switch-thumb"></div>
                 </div>
             </div>
         </div>
@@ -74,8 +72,6 @@
             </div>
         </div>
 
-
-
         <!-- Notepad -->
         <div class="section">
             <div class="section-label">Note taking</div>
@@ -97,7 +93,7 @@
 
         <div class="popup-footer">
             <span class="version">v1.0.0</span>
-            <button class="footer-link">Report issue</button>
+            <button class="footer-link" id="contactBtn">Contact us</button>
         </div>
         <div class="popup-status" id="statusMessage" hidden></div>
     </div>
