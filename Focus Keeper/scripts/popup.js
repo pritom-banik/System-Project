@@ -1,13 +1,11 @@
 const STORAGE_KEYS = {
-  filterMode: "focusKeeper.filterMode",
-  filterInput: "focusKeeper.filterInput",
+  filterEnabled: "focusKeeper.filterEnabled",
   hideComments: "focusKeeper.hideComments",
   hideSuggestions: "focusKeeper.hideSuggestions",
 };
 
 const DEFAULT_SETTINGS = {
-  [STORAGE_KEYS.filterMode]: "searched",
-  [STORAGE_KEYS.filterInput]: "",
+  [STORAGE_KEYS.filterEnabled]: false,
   [STORAGE_KEYS.hideComments]: true,
   [STORAGE_KEYS.hideSuggestions]: false,
 };
@@ -58,28 +56,15 @@ function showStatus(message) {
   }, 2800);
 }
 
-function updateFilterPills(mode) {
-  const searched = document.getElementById("pill-searched");
-  const watched = document.getElementById("pill-watched");
-
-  searched.className = `pill ${mode === "searched" ? "pill-blue" : "pill-ghost"}`;
-  watched.className = `pill ${mode === "watched" ? "pill-blue" : "pill-ghost"}`;
-}
-
 function updateSwitch(id, value) {
   const element = document.getElementById(id);
   element.classList.toggle("on", Boolean(value));
 }
 
 function mapSwitchIdToStorage(id) {
-  if (id === "sw-comments") {
-    return STORAGE_KEYS.hideComments;
-  }
-
-  if (id === "sw-suggest") {
-    return STORAGE_KEYS.hideSuggestions;
-  }
-
+  if (id === "sw-comments") return STORAGE_KEYS.hideComments;
+  if (id === "sw-suggest") return STORAGE_KEYS.hideSuggestions;
+  if (id === "sw-filter") return STORAGE_KEYS.filterEnabled;
   return null;
 }
 
@@ -97,22 +82,20 @@ async function syncContentControls() {
   });
 }
 
-window.setFilter = async function setFilter(mode) {
-  updateFilterPills(mode);
-  await setStorage({ [STORAGE_KEYS.filterMode]: mode });
-};
-
 window.toggle = async function toggle(id) {
   const storageKey = mapSwitchIdToStorage(id);
-  if (!storageKey) {
-    return;
-  }
+  if (!storageKey) return;
 
   const element = document.getElementById(id);
   const nextValue = !element.classList.contains("on");
   updateSwitch(id, nextValue);
   await setStorage({ [storageKey]: nextValue });
-  await syncContentControls();
+
+  if (id === "sw-filter") {
+    await sendMessageToActiveTab({ type: "FOCUS_KEEPER_SET_FILTER", enabled: nextValue });
+  } else {
+    await syncContentControls();
+  }
 };
 
 window.doCapture = async function doCapture() {
@@ -141,22 +124,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   const settings = await getStorage(Object.values(STORAGE_KEYS));
   const merged = { ...DEFAULT_SETTINGS, ...settings };
 
-  updateFilterPills(merged[STORAGE_KEYS.filterMode]);
+  updateSwitch("sw-filter", merged[STORAGE_KEYS.filterEnabled]);
   updateSwitch("sw-comments", merged[STORAGE_KEYS.hideComments]);
   updateSwitch("sw-suggest", merged[STORAGE_KEYS.hideSuggestions]);
 
-  const filterInput = document.getElementById("filterInput");
-  filterInput.value = merged[STORAGE_KEYS.filterInput];
-  filterInput.addEventListener("input", async (event) => {
-    await setStorage({ [STORAGE_KEYS.filterInput]: event.target.value });
-  });
-
-  document.getElementById("pill-searched").addEventListener("click", () => {
-    window.setFilter("searched");
-  });
-
-  document.getElementById("pill-watched").addEventListener("click", () => {
-    window.setFilter("watched");
+  document.getElementById("toggle-filter").addEventListener("click", () => {
+    window.toggle("sw-filter");
   });
 
   document.getElementById("toggle-comments").addEventListener("click", () => {
