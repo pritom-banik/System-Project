@@ -829,7 +829,7 @@ function getYouTubeVideoTitle() {
 const videoTitle = getYouTubeVideoTitle();
 console.log("YouTube Video Title:", videoTitle);
 
-chrome.runtime.sendMessage({ type: "VIDEO_TITLE", title: videoTitle });
+//chrome.runtime.sendMessage({ type: "VIDEO_TITLE", title: videoTitle });
 
 function extractVideoInfo() {
   const videos = document.querySelectorAll("yt-lockup-view-model");
@@ -838,43 +838,29 @@ function extractVideoInfo() {
     const titleText = titleLink
       ? (titleLink.getAttribute("title") || titleLink.innerText.trim())
       : null;
-    return { dom: video, title: titleText, link: titleLink ? titleLink.href : null };
+    return {
+      dom: video,
+      title: titleText,
+      link: titleLink ? titleLink.href : null
+    };
   });
 }
 
 function filterExistingVideos() {
-  const allVideoInfo = extractVideoInfo();
-  allVideoInfo.forEach((element) => {
-    if (!element.title) return;
-    if (!videoInfo.includes(element.title)) videoInfo.push(element.title);
-    if (filteredElements.has(element.dom)) return;
+  if (filterEnabled) {
+    const allVideoInfo = extractVideoInfo();
 
-    chrome.runtime.sendMessage(
-      { type: "NEW_VIDEO", video_title: videoTitle, title: element.title },
-      (response) => {
-        if (response?.result === false) {
-          const el = element.dom;
-          el.style.transition = "transform 0.4s ease, opacity 0.4s ease";
-          el.style.transform = "translateX(100%)";
-          el.style.opacity = "0";
-          setTimeout(() => { el.style.display = "none"; }, 400);
-          filteredElements.set(element.dom, true);
-        }
-      },
-    );
-  });
-}
+    allVideoInfo.forEach((element) => {
+      if (element.title && !videoInfo.includes(element.title)) {
+        videoInfo.push(element.title);
 
-const observer = new MutationObserver(() => {
-  const allVideoInfo = extractVideoInfo();
-
-  allVideoInfo.forEach((element) => {
-    if (element.title && !videoInfo.includes(element.title)) {
-      videoInfo.push(element.title);
-
-      if (filterEnabled) {
+        console.log(element.title);
         chrome.runtime.sendMessage(
-          { type: "NEW_VIDEO", video_title: videoTitle, title: element.title },
+          {
+            type: "NEW_VIDEO",
+            video_title: videoTitle,
+            title: element.title
+          },
           (response) => {
             const keepVideo = response?.result;
             if (keepVideo === false) {
@@ -888,9 +874,12 @@ const observer = new MutationObserver(() => {
           },
         );
       }
-    }
-  });
+    });
+  }
+}
 
+const observer = new MutationObserver(() => {
+  filterExistingVideos();
   hydrateContentControls().catch((error) => console.error("Control sync failed:", error));
 });
 
@@ -927,17 +916,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.type === "FOCUS_KEEPER_SET_FILTER") {
     filterEnabled = Boolean(message.enabled);
-    if (!filterEnabled) {
-      filteredElements.forEach((_, dom) => {
-        dom.style.transition = "";
-        dom.style.transform = "";
-        dom.style.opacity = "";
-        dom.style.display = "";
-      });
-    } else {
-      filteredElements.forEach((_, dom) => { dom.style.display = "none"; });
-      filterExistingVideos();
-    }
+    // if (!filterEnabled) {
+    //   filteredElements.forEach((_, dom) => {
+    //     dom.style.transition = "";
+    //     dom.style.transform = "";
+    //     dom.style.opacity = "";
+    //     dom.style.display = "";
+    //   });
+    // } else {
+    //   filteredElements.forEach((_, dom) => { dom.style.display = "none"; });
+    //   //filterExistingVideos();
+    // }
     sendResponse({ ok: true });
   }
 
