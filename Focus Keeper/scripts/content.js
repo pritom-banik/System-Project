@@ -3,6 +3,7 @@ console.log("Focus Keeper content script loaded");
 const FOCUS_KEEPER_STORAGE = {
   hideComments: "focusKeeper.hideComments",
   hideSuggestions: "focusKeeper.hideSuggestions",
+  filterEnabled: "focusKeeper.filterEnabled",
 };
 
 const NOTES_WINDOW_ID = "focus-keeper-notes-root";
@@ -11,6 +12,8 @@ const NOTES_STYLE_ID = "focus-keeper-notes-style";
 let noteApp = null;
 let videoInfo = [];
 let saveTimer = null;
+let filterEnabled = false;
+const filteredElements = new Map();
 
 function getStorage(keys) {
   return new Promise((resolve) => chrome.storage.local.get(keys, resolve));
@@ -286,22 +289,20 @@ function injectNotesStyles() {
       position: fixed;
       top: 110px;
       right: 28px;
-      width: 440px;
-      min-width: 320px;
-      max-width: min(92vw, 560px);
-      height: 560px;
+      width: 420px;
+      min-width: 300px;
+      height: 520px;
+      min-height: 300px;
       max-height: calc(100vh - 40px);
-      background: rgba(9, 9, 11, 0.96);
-      color: #fafafa;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 16px;
-      box-shadow:
-        0 24px 60px rgba(0, 0, 0, 0.45),
-        0 1px 0 rgba(255, 255, 255, 0.03) inset;
+      background: #0e0e10;
+      color: #f4f4f5;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 14px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.65), 0 1px 0 rgba(255, 255, 255, 0.04) inset;
       z-index: 2147483647;
       display: none;
       overflow: hidden;
-      backdrop-filter: blur(18px);
+      resize: both;
       font-family: Inter, "Segoe UI", Arial, sans-serif;
     }
 
@@ -318,312 +319,253 @@ function injectNotesStyles() {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 12px;
-      padding: 14px 16px 12px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-      background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0.01));
+      gap: 10px;
+      padding: 11px 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+      background: rgba(255, 255, 255, 0.02);
       cursor: move;
       user-select: none;
+      flex-shrink: 0;
     }
 
     #${NOTES_WINDOW_ID} .fk-notes-title {
       display: flex;
-      flex-direction: column;
-      gap: 4px;
+      align-items: center;
+      gap: 8px;
     }
 
     #${NOTES_WINDOW_ID} .fk-notes-title strong {
-      font-size: 14px;
-      line-height: 1.2;
+      font-size: 13px;
       font-weight: 600;
       letter-spacing: -0.01em;
+      color: #f4f4f5;
     }
 
-    #${NOTES_WINDOW_ID} .fk-notes-title span {
-      font-size: 11px;
-      color: rgba(250, 250, 250, 0.52);
+    #${NOTES_WINDOW_ID} .fk-notes-badge {
+      font-size: 10px;
+      font-weight: 500;
+      padding: 2px 7px;
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.07);
+      color: rgba(244, 244, 245, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.08);
     }
 
-    #${NOTES_WINDOW_ID} .fk-notes-actions,
-    #${NOTES_WINDOW_ID} .fk-toolbar,
-    #${NOTES_WINDOW_ID} .fk-view-switch,
-    #${NOTES_WINDOW_ID} .fk-footer,
-    #${NOTES_WINDOW_ID} .fk-footer-actions {
+    #${NOTES_WINDOW_ID} .fk-notes-actions {
       display: flex;
       align-items: center;
-      gap: 6px;
-    }
-
-    #${NOTES_WINDOW_ID} .fk-header-btn,
-    #${NOTES_WINDOW_ID} .fk-tool-btn,
-    #${NOTES_WINDOW_ID} .fk-view-btn,
-    #${NOTES_WINDOW_ID} .fk-footer-btn {
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      background: rgba(24, 24, 27, 0.92);
-      color: rgba(250, 250, 250, 0.92);
-      border-radius: 10px;
-      min-width: 34px;
-      height: 34px;
-      padding: 0 10px;
-      font-size: 12px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
-      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.02) inset;
-      letter-spacing: -0.01em;
-      white-space: nowrap;
-    }
-
-    #${NOTES_WINDOW_ID} .fk-tool-btn[data-command="heading-large"],
-    #${NOTES_WINDOW_ID} .fk-tool-btn[data-command="heading-medium"] {
-      font-weight: 700;
-    }
-
-    #${NOTES_WINDOW_ID} .fk-header-btn:hover,
-    #${NOTES_WINDOW_ID} .fk-tool-btn:hover,
-    #${NOTES_WINDOW_ID} .fk-view-btn:hover,
-    #${NOTES_WINDOW_ID} .fk-footer-btn:hover {
-      background: rgba(39, 39, 42, 0.98);
-      border-color: rgba(255, 255, 255, 0.12);
-    }
-
-    #${NOTES_WINDOW_ID} .fk-view-btn.is-active {
-      background: #fafafa;
-      border-color: #fafafa;
-      color: #0a0a0b;
-    }
-
-    #${NOTES_WINDOW_ID} .fk-toolbar-wrap {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: space-between;
-      gap: 10px;
-      padding: 12px 16px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-      background: rgba(10, 10, 12, 0.9);
-    }
-
-    #${NOTES_WINDOW_ID} .fk-toolbar {
-      flex-wrap: wrap;
       gap: 4px;
-      padding: 6px;
-      border-radius: 14px;
-      background: rgba(255, 255, 255, 0.025);
-      border: 1px solid rgba(255, 255, 255, 0.06);
-    }
-
-    #${NOTES_WINDOW_ID} .fk-view-switch {
-      gap: 4px;
-      padding: 6px;
-      border-radius: 14px;
-      background: rgba(255, 255, 255, 0.025);
-      border: 1px solid rgba(255, 255, 255, 0.06);
     }
 
     #${NOTES_WINDOW_ID} .fk-header-btn {
-      width: 30px;
-      min-width: 30px;
-      height: 30px;
-      padding: 0;
-      border-radius: 9px;
-      font-size: 14px;
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.04);
+      color: rgba(244, 244, 245, 0.7);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+
+    #${NOTES_WINDOW_ID} .fk-header-btn:hover {
+      background: rgba(255, 255, 255, 0.09);
+      border-color: rgba(255, 255, 255, 0.15);
+      color: #f4f4f5;
+    }
+
+    #${NOTES_WINDOW_ID} .fk-toolbar-wrap {
+      padding: 8px 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+      background: rgba(255, 255, 255, 0.015);
+      flex-shrink: 0;
+    }
+
+    #${NOTES_WINDOW_ID} .fk-toolbar {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 2px;
+    }
+
+    #${NOTES_WINDOW_ID} .fk-toolbar-sep {
+      width: 1px;
+      height: 18px;
+      background: rgba(255, 255, 255, 0.1);
+      margin: 0 4px;
+      flex-shrink: 0;
     }
 
     #${NOTES_WINDOW_ID} .fk-tool-btn {
-      min-width: 34px;
-      height: 30px;
-      padding: 0 10px;
-      border-radius: 8px;
+      height: 28px;
+      min-width: 28px;
+      padding: 0 8px;
+      border-radius: 6px;
+      border: 1px solid transparent;
       background: transparent;
-      border-color: transparent;
-      color: rgba(250, 250, 250, 0.78);
-      font-size: 12px;
-    }
-
-    #${NOTES_WINDOW_ID} .fk-footer-btn {
-      height: 32px;
-      padding: 0 12px;
-      border-radius: 8px;
-    }
-
-    #${NOTES_WINDOW_ID} .fk-view-btn {
-      height: 30px;
-      min-width: 0;
-      padding: 0 14px;
-      border-radius: 8px;
-      background: transparent;
-      border-color: transparent;
-      color: rgba(250, 250, 250, 0.72);
+      color: rgba(244, 244, 245, 0.65);
       font-size: 12px;
       font-weight: 500;
+      cursor: pointer;
+      transition: background 0.12s, color 0.12s, border-color 0.12s;
+      white-space: nowrap;
+      font-family: Inter, "Segoe UI", Arial, sans-serif;
     }
 
-    #${NOTES_WINDOW_ID} .fk-tool-btn:hover,
-    #${NOTES_WINDOW_ID} .fk-tool-btn:focus-visible,
-    #${NOTES_WINDOW_ID} .fk-view-btn:hover,
-    #${NOTES_WINDOW_ID} .fk-view-btn:focus-visible {
-      background: rgba(255, 255, 255, 0.06);
-      border-color: rgba(255, 255, 255, 0.06);
-      color: rgba(250, 250, 250, 0.96);
-      outline: none;
+    #${NOTES_WINDOW_ID} .fk-tool-btn:hover {
+      background: rgba(255, 255, 255, 0.07);
+      border-color: rgba(255, 255, 255, 0.08);
+      color: #f4f4f5;
     }
+
+    #${NOTES_WINDOW_ID} .fk-tool-btn[data-command="bold"] { font-weight: 700; }
+    #${NOTES_WINDOW_ID} .fk-tool-btn[data-command="italic"] { font-style: italic; }
+    #${NOTES_WINDOW_ID} .fk-tool-btn[data-command="underline"] { text-decoration: underline; }
+    #${NOTES_WINDOW_ID} .fk-tool-btn[data-command="heading-large"],
+    #${NOTES_WINDOW_ID} .fk-tool-btn[data-command="heading-medium"] { font-weight: 700; font-size: 11px; }
 
     #${NOTES_WINDOW_ID} .fk-editor-wrap {
       flex: 1;
       min-height: 0;
-      padding: 16px;
+      padding: 12px;
       overflow: hidden;
-      background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.015), rgba(255, 255, 255, 0));
     }
 
-    #${NOTES_WINDOW_ID} .fk-rich-editor,
-    #${NOTES_WINDOW_ID} .fk-markdown-editor {
+    #${NOTES_WINDOW_ID} .fk-rich-editor {
       width: 100%;
       height: 100%;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 14px;
-      background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0.015)),
-        rgba(9, 9, 11, 0.96);
-      color: #fafafa;
-      padding: 18px 18px 24px;
-      overflow: auto;
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.02);
+      color: #f4f4f5;
+      padding: 14px 16px 20px;
+      overflow-y: auto;
       outline: none;
       line-height: 1.7;
       font-size: 14px;
-      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.02) inset;
     }
 
-    #${NOTES_WINDOW_ID} .fk-rich-editor:focus,
-    #${NOTES_WINDOW_ID} .fk-markdown-editor:focus {
-      border-color: rgba(255, 255, 255, 0.14);
-      box-shadow:
-        0 0 0 1px rgba(255, 255, 255, 0.06),
-        0 1px 0 rgba(255, 255, 255, 0.02) inset;
+    #${NOTES_WINDOW_ID} .fk-rich-editor:focus {
+      border-color: rgba(255, 255, 255, 0.13);
     }
 
     #${NOTES_WINDOW_ID} .fk-rich-editor[contenteditable="true"]:empty::before {
       content: attr(data-placeholder);
-      color: rgba(250, 250, 250, 0.34);
+      color: rgba(244, 244, 245, 0.28);
+      pointer-events: none;
     }
 
-    #${NOTES_WINDOW_ID} .fk-markdown-editor {
-      resize: none;
-      font-family: "JetBrains Mono", "Consolas", "Courier New", monospace;
-      display: none;
-    }
-
-    #${NOTES_WINDOW_ID}.markdown-mode .fk-rich-editor {
-      display: none;
-    }
-
-    #${NOTES_WINDOW_ID}.markdown-mode .fk-markdown-editor {
-      display: block;
-    }
-
-    #${NOTES_WINDOW_ID} h1,
-    #${NOTES_WINDOW_ID} h2,
-    #${NOTES_WINDOW_ID} h3 {
-      margin: 0.9em 0 0.45em;
-      line-height: 1.2;
+    #${NOTES_WINDOW_ID} h1, #${NOTES_WINDOW_ID} h2, #${NOTES_WINDOW_ID} h3 {
+      margin: 0.8em 0 0.4em;
+      line-height: 1.25;
       letter-spacing: -0.02em;
     }
-
-    #${NOTES_WINDOW_ID} h1 {
-      font-size: 1.6rem;
-      font-weight: 700;
-    }
-
-    #${NOTES_WINDOW_ID} h2 {
-      font-size: 1.2rem;
-      font-weight: 650;
-    }
-
-    #${NOTES_WINDOW_ID} h3 {
-      font-size: 1rem;
-      font-weight: 650;
-    }
+    #${NOTES_WINDOW_ID} h1 { font-size: 1.5rem; font-weight: 700; }
+    #${NOTES_WINDOW_ID} h2 { font-size: 1.15rem; font-weight: 650; }
+    #${NOTES_WINDOW_ID} h3 { font-size: 1rem; font-weight: 650; }
 
     #${NOTES_WINDOW_ID} p,
     #${NOTES_WINDOW_ID} ul,
     #${NOTES_WINDOW_ID} ol,
     #${NOTES_WINDOW_ID} blockquote,
-    #${NOTES_WINDOW_ID} pre {
-      margin: 0 0 0.9em;
-    }
+    #${NOTES_WINDOW_ID} pre { margin: 0 0 0.8em; }
 
     #${NOTES_WINDOW_ID} blockquote {
-      border-left: 2px solid rgba(255, 255, 255, 0.16);
-      padding: 2px 0 2px 14px;
-      color: rgba(250, 250, 250, 0.76);
+      border-left: 2px solid rgba(255, 255, 255, 0.18);
+      padding: 2px 0 2px 12px;
+      color: rgba(244, 244, 245, 0.72);
     }
 
     #${NOTES_WINDOW_ID} pre,
-    #${NOTES_WINDOW_ID} code {
-      font-family: "JetBrains Mono", "Consolas", "Courier New", monospace;
-    }
+    #${NOTES_WINDOW_ID} code { font-family: "JetBrains Mono", "Consolas", monospace; }
 
     #${NOTES_WINDOW_ID} code {
       padding: 1px 5px;
-      border-radius: 6px;
-      background: rgba(255, 255, 255, 0.06);
-      font-size: 0.92em;
+      border-radius: 5px;
+      background: rgba(255, 255, 255, 0.07);
+      font-size: 0.9em;
     }
 
     #${NOTES_WINDOW_ID} pre {
-      padding: 14px 16px;
-      border-radius: 12px;
+      padding: 12px 14px;
+      border-radius: 8px;
       background: rgba(255, 255, 255, 0.04);
-      border: 1px solid rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.07);
       overflow: auto;
     }
 
-    #${NOTES_WINDOW_ID} ul,
-    #${NOTES_WINDOW_ID} ol {
-      padding-left: 1.3rem;
-    }
-
-    #${NOTES_WINDOW_ID} li + li {
-      margin-top: 0.35rem;
-    }
-
-    #${NOTES_WINDOW_ID} .fk-footer {
-      justify-content: space-between;
-      padding: 12px 16px 16px;
-      border-top: 1px solid rgba(255, 255, 255, 0.06);
-      background: rgba(10, 10, 12, 0.92);
-    }
-
-    #${NOTES_WINDOW_ID}.is-minimized {
-      height: auto;
-    }
-
-    #${NOTES_WINDOW_ID}.is-minimized .fk-toolbar-wrap,
-    #${NOTES_WINDOW_ID}.is-minimized .fk-editor-wrap,
-    #${NOTES_WINDOW_ID}.is-minimized .fk-footer {
-      display: none;
-    }
-
-    #${NOTES_WINDOW_ID} .fk-footer-meta {
-      font-size: 11px;
-      color: rgba(250, 250, 250, 0.5);
-    }
+    #${NOTES_WINDOW_ID} ul, #${NOTES_WINDOW_ID} ol { padding-left: 1.3rem; }
+    #${NOTES_WINDOW_ID} li + li { margin-top: 0.3rem; }
 
     #${NOTES_WINDOW_ID} a {
-      color: #e4e4e7;
+      color: #93c5fd;
       text-underline-offset: 2px;
     }
 
+    #${NOTES_WINDOW_ID} .fk-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px 10px;
+      border-top: 1px solid rgba(255, 255, 255, 0.07);
+      background: rgba(255, 255, 255, 0.015);
+      flex-shrink: 0;
+    }
+
+    #${NOTES_WINDOW_ID} .fk-footer-actions {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    #${NOTES_WINDOW_ID} .fk-footer-btn {
+      height: 28px;
+      padding: 0 10px;
+      border-radius: 7px;
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      background: rgba(255, 255, 255, 0.04);
+      color: rgba(244, 244, 245, 0.75);
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: Inter, "Segoe UI", Arial, sans-serif;
+      transition: background 0.12s, border-color 0.12s, color 0.12s;
+      white-space: nowrap;
+    }
+
+    #${NOTES_WINDOW_ID} .fk-footer-btn:hover {
+      background: rgba(255, 255, 255, 0.09);
+      border-color: rgba(255, 255, 255, 0.16);
+      color: #f4f4f5;
+    }
+
+    #${NOTES_WINDOW_ID} .fk-footer-btn.fk-btn-danger:hover {
+      background: rgba(239, 68, 68, 0.14);
+      border-color: rgba(239, 68, 68, 0.28);
+      color: #fca5a5;
+    }
+
+    #${NOTES_WINDOW_ID} .fk-footer-meta {
+      font-size: 10px;
+      color: rgba(244, 244, 245, 0.38);
+      letter-spacing: 0.01em;
+    }
+
+    #${NOTES_WINDOW_ID}.is-minimized { height: auto !important; min-height: 0; }
+    #${NOTES_WINDOW_ID}.is-minimized .fk-toolbar-wrap,
+    #${NOTES_WINDOW_ID}.is-minimized .fk-editor-wrap,
+    #${NOTES_WINDOW_ID}.is-minimized .fk-footer { display: none; }
+
     @media (max-width: 720px) {
       #${NOTES_WINDOW_ID} {
-        top: 16px;
-        right: 16px;
-        left: 16px;
-        width: auto;
-        height: min(70vh, 560px);
-        max-width: none;
+        top: 16px; right: 16px; left: 16px;
+        width: auto !important;
+        height: min(70vh, 520px);
       }
     }
   `;
@@ -632,31 +574,16 @@ function injectNotesStyles() {
 }
 
 function updateFooterMeta() {
-  if (!noteApp) {
-    return;
-  }
-
-  const source = noteApp.root.classList.contains("markdown-mode")
-    ? noteApp.markdownEditor.value
-    : noteApp.richEditor.innerText;
-
-  const words = source.trim() ? source.trim().split(/\s+/).length : 0;
-  noteApp.meta.textContent = `${words} words • auto-saved for this video`;
+  if (!noteApp) return;
+  const text = noteApp.richEditor.innerText;
+  const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+  noteApp.meta.textContent = `${words} words`;
 }
 
 async function persistEditorContent() {
-  if (!noteApp) {
-    return;
-  }
-
-  const markdown = noteApp.root.classList.contains("markdown-mode")
-    ? noteApp.markdownEditor.value
-    : htmlToMarkdown(noteApp.richEditor.innerHTML);
-
-  const html = noteApp.root.classList.contains("markdown-mode")
-    ? markdownToHtml(markdown)
-    : noteApp.richEditor.innerHTML;
-
+  if (!noteApp) return;
+  const html = noteApp.richEditor.innerHTML;
+  const markdown = htmlToMarkdown(html);
   await saveCurrentNote({ html, markdown });
   updateFooterMeta();
 }
@@ -668,26 +595,6 @@ function queueSave() {
   }, 250);
 }
 
-function switchEditorMode(mode) {
-  if (!noteApp) {
-    return;
-  }
-
-  const isMarkdown = mode === "markdown";
-  noteApp.root.classList.toggle("markdown-mode", isMarkdown);
-  noteApp.richTab.classList.toggle("is-active", !isMarkdown);
-  noteApp.markdownTab.classList.toggle("is-active", isMarkdown);
-
-  if (isMarkdown) {
-    noteApp.markdownEditor.value = htmlToMarkdown(noteApp.richEditor.innerHTML);
-    noteApp.markdownEditor.focus();
-  } else {
-    noteApp.richEditor.innerHTML = markdownToHtml(noteApp.markdownEditor.value);
-    noteApp.richEditor.focus();
-  }
-
-  queueSave();
-}
 
 function insertChecklist() {
   document.execCommand("insertHTML", false, '<ul><li><label><input type="checkbox"> New task</label></li></ul>');
@@ -724,36 +631,24 @@ function formatSelection(command) {
   queueSave();
 }
 
-function downloadMarkdown() {
-  if (!noteApp) {
-    return;
-  }
-
-  const markdown = noteApp.root.classList.contains("markdown-mode")
-    ? noteApp.markdownEditor.value
-    : htmlToMarkdown(noteApp.richEditor.innerHTML);
-
-  const blob = new Blob([markdown], { type: "text/markdown;charset=utf-8" });
+function downloadNotes() {
+  if (!noteApp) return;
+  const text = noteApp.richEditor.innerText;
+  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
   const objectUrl = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = objectUrl;
-  anchor.download = "focus-keeper-notes.md";
+  anchor.download = "focus-keeper-notes.txt";
   anchor.click();
   URL.revokeObjectURL(objectUrl);
 }
 
-async function copyMarkdown() {
-  if (!noteApp) {
-    return;
-  }
-
-  const markdown = noteApp.root.classList.contains("markdown-mode")
-    ? noteApp.markdownEditor.value
-    : htmlToMarkdown(noteApp.richEditor.innerHTML);
-
+async function copyText() {
+  if (!noteApp) return;
   try {
-    await navigator.clipboard.writeText(markdown);
-    noteApp.meta.textContent = "Markdown copied to clipboard";
+    await navigator.clipboard.writeText(noteApp.richEditor.innerText);
+    noteApp.meta.textContent = "Copied ✓";
+    window.setTimeout(updateFooterMeta, 2000);
   } catch (error) {
     console.error("Clipboard copy failed:", error);
   }
@@ -849,45 +744,44 @@ function buildNotesWindow() {
     <div class="fk-notes-header">
       <div class="fk-notes-title">
         <strong>Video Notes</strong>
-        <span>Draggable note space that stays beside your video</span>
+        <span class="fk-notes-badge">Rich Text</span>
       </div>
       <div class="fk-notes-actions">
-        <button class="fk-header-btn" type="button" data-action="minimize" title="Minimize">-</button>
-        <button class="fk-header-btn" type="button" data-action="close" title="Close">X</button>
+        <button class="fk-header-btn" type="button" data-action="minimize" title="Minimize">−</button>
+        <button class="fk-header-btn" type="button" data-action="close" title="Close">✕</button>
       </div>
     </div>
     <div class="fk-toolbar-wrap">
       <div class="fk-toolbar">
-        <button class="fk-tool-btn" type="button" data-command="bold" title="Bold"><strong>B</strong></button>
-        <button class="fk-tool-btn" type="button" data-command="italic" title="Italic"><em>I</em></button>
-        <button class="fk-tool-btn" type="button" data-command="underline" title="Underline"><u>U</u></button>
+        <button class="fk-tool-btn" type="button" data-command="bold" title="Bold">B</button>
+        <button class="fk-tool-btn" type="button" data-command="italic" title="Italic">I</button>
+        <button class="fk-tool-btn" type="button" data-command="underline" title="Underline">U</button>
+        <div class="fk-toolbar-sep"></div>
         <button class="fk-tool-btn" type="button" data-command="heading-large" title="Heading 1">H1</button>
         <button class="fk-tool-btn" type="button" data-command="heading-medium" title="Heading 2">H2</button>
-        <button class="fk-tool-btn" type="button" data-command="insertUnorderedList" title="Bullet list">List</button>
-        <button class="fk-tool-btn" type="button" data-command="insertOrderedList" title="Numbered list">1.</button>
-        <button class="fk-tool-btn" type="button" data-command="checklist" title="Checklist">Task</button>
-        <button class="fk-tool-btn" type="button" data-command="quote" title="Quote">Quote</button>
-        <button class="fk-tool-btn" type="button" data-command="code-block" title="Code block">Code</button>
-        <button class="fk-tool-btn" type="button" data-command="link" title="Add link">Link</button>
+        <div class="fk-toolbar-sep"></div>
+        <button class="fk-tool-btn" type="button" data-command="insertUnorderedList" title="Bullet list">• List</button>
+        <button class="fk-tool-btn" type="button" data-command="insertOrderedList" title="Numbered list">1. List</button>
+        <button class="fk-tool-btn" type="button" data-command="checklist" title="Checklist">☑ Task</button>
+        <div class="fk-toolbar-sep"></div>
+        <button class="fk-tool-btn" type="button" data-command="quote" title="Blockquote">" Quote</button>
+        <button class="fk-tool-btn" type="button" data-command="code-block" title="Code block">&lt;/&gt; Code</button>
+        <button class="fk-tool-btn" type="button" data-command="link" title="Add link">🔗 Link</button>
+        <div class="fk-toolbar-sep"></div>
         <button class="fk-tool-btn" type="button" data-command="undo" title="Undo">↺</button>
         <button class="fk-tool-btn" type="button" data-command="redo" title="Redo">↻</button>
       </div>
-      <div class="fk-view-switch">
-        <button class="fk-view-btn is-active" type="button" data-mode="rich">Rich Text</button>
-        <button class="fk-view-btn" type="button" data-mode="markdown">Markdown</button>
-      </div>
     </div>
     <div class="fk-editor-wrap">
-      <div class="fk-rich-editor" contenteditable="true" spellcheck="true" data-placeholder="Write key takeaways, timestamps, ideas, and action items here..."></div>
-      <textarea class="fk-markdown-editor" spellcheck="true" placeholder="Write or paste Markdown here..."></textarea>
+      <div class="fk-rich-editor" contenteditable="true" spellcheck="true" data-placeholder="Write key takeaways, timestamps, ideas…"></div>
     </div>
     <div class="fk-footer">
       <div class="fk-footer-actions">
-        <button class="fk-footer-btn" type="button" data-action="copy-markdown">Copy Markdown</button>
-        <button class="fk-footer-btn" type="button" data-action="download-markdown">Download .md</button>
-        <button class="fk-footer-btn" type="button" data-action="clear-note">Clear</button>
+        <button class="fk-footer-btn" type="button" data-action="copy-text">Copy Text</button>
+        <button class="fk-footer-btn" type="button" data-action="download-notes">Download</button>
+        <button class="fk-footer-btn fk-btn-danger" type="button" data-action="clear-note">Clear</button>
       </div>
-      <div class="fk-footer-meta">0 words • auto-saved for this video</div>
+      <div class="fk-footer-meta">0 words</div>
     </div>
   `;
 
@@ -895,9 +789,6 @@ function buildNotesWindow() {
 
   const header = root.querySelector(".fk-notes-header");
   const richEditor = root.querySelector(".fk-rich-editor");
-  const markdownEditor = root.querySelector(".fk-markdown-editor");
-  const richTab = root.querySelector('[data-mode="rich"]');
-  const markdownTab = root.querySelector('[data-mode="markdown"]');
   const meta = root.querySelector(".fk-footer-meta");
   const minimizeButton = root.querySelector('[data-action="minimize"]');
 
@@ -907,37 +798,27 @@ function buildNotesWindow() {
     button.addEventListener("click", () => formatSelection(button.dataset.command));
   });
 
-  root.querySelectorAll(".fk-view-btn").forEach((button) => {
-    button.addEventListener("click", () => switchEditorMode(button.dataset.mode));
-  });
-
   root.querySelector('[data-action="close"]').addEventListener("click", () => {
     root.classList.remove("is-open");
   });
 
   minimizeButton.addEventListener("click", () => {
     const minimized = root.classList.toggle("is-minimized");
-    minimizeButton.textContent = minimized ? "+" : "-";
+    minimizeButton.textContent = minimized ? "+" : "−";
     minimizeButton.title = minimized ? "Restore" : "Minimize";
   });
 
-  root.querySelector('[data-action="copy-markdown"]').addEventListener("click", copyMarkdown);
-  root.querySelector('[data-action="download-markdown"]').addEventListener("click", downloadMarkdown);
+  root.querySelector('[data-action="copy-text"]').addEventListener("click", copyText);
+  root.querySelector('[data-action="download-notes"]').addEventListener("click", downloadNotes);
   root.querySelector('[data-action="clear-note"]').addEventListener("click", async () => {
     const confirmed = window.confirm("Clear all notes for this video?");
-    if (!confirmed) {
-      return;
-    }
-
+    if (!confirmed) return;
     richEditor.innerHTML = "";
-    markdownEditor.value = "";
     await persistEditorContent();
   });
 
   richEditor.addEventListener("input", queueSave);
-  markdownEditor.addEventListener("input", queueSave);
   trapEditorKeyboardEvents(richEditor);
-  trapEditorKeyboardEvents(markdownEditor);
 
   root.addEventListener("change", (event) => {
     if (event.target.matches('input[type="checkbox"]')) {
@@ -945,14 +826,7 @@ function buildNotesWindow() {
     }
   });
 
-  noteApp = {
-    root,
-    richEditor,
-    markdownEditor,
-    richTab,
-    markdownTab,
-    meta,
-  };
+  noteApp = { root, richEditor, meta };
 
   window.addEventListener("resize", clampToViewport);
 
@@ -963,7 +837,6 @@ async function loadNotesIntoEditor() {
   const app = buildNotesWindow();
   const note = await getCurrentNoteData();
   app.richEditor.innerHTML = note.html || markdownToHtml(note.markdown || "");
-  app.markdownEditor.value = note.markdown || htmlToMarkdown(app.richEditor.innerHTML);
   updateFooterMeta();
 }
 
@@ -1009,6 +882,11 @@ async function hydrateContentControls() {
   });
 }
 
+async function hydrateFilterState() {
+  const settings = await getStorage([FOCUS_KEEPER_STORAGE.filterEnabled]);
+  filterEnabled = settings[FOCUS_KEEPER_STORAGE.filterEnabled] ?? false;
+}
+
 function getYouTubeVideoTitle() {
   const metaTitle = document.querySelector('meta[name="title"]');
   return metaTitle ? metaTitle.content : null;
@@ -1044,25 +922,23 @@ function extractVideoInfo() {
 }
 
 const observer = new MutationObserver(() => {
- // console.log("THe mutation observer is working and checking for new videos...");
   const allVideoInfo = extractVideoInfo();
 
-  allVideoInfo.forEach((element, index) => {
+  allVideoInfo.forEach((element) => {
     if (element.title && !videoInfo.includes(element.title)) {
       videoInfo.push(element.title);
-      console.log(index, "New video found:", element.title);
-      chrome.runtime.sendMessage(
-        {
-          type: "NEW_VIDEO",
-          title: element.title,
-        },
-        (response) => {
-          const keepVideo = response?.result;
-          if (keepVideo === false) {
-            element.dom.style.display = "none";
-          }
-        },
-      );
+      if (filterEnabled) {
+        chrome.runtime.sendMessage(
+          { type: "NEW_VIDEO", title: element.title },
+          (response) => {
+            const keepVideo = response?.result;
+            if (keepVideo === false) {
+              element.dom.style.display = "none";
+              filteredElements.set(element.dom, true);
+            }
+          },
+        );
+      }
     }
   });
 
@@ -1081,6 +957,26 @@ document.addEventListener("yt-navigate-finish", () => {
     loadNotesIntoEditor().catch((error) => console.error("Failed to reload notes:", error));
   }
 });
+
+function filterExistingVideos() {
+  const allVideoInfo = extractVideoInfo();
+  allVideoInfo.forEach((element) => {
+    if (!element.title) return;
+    if (!videoInfo.includes(element.title)) {
+      videoInfo.push(element.title);
+    }
+    if (filteredElements.has(element.dom)) return;
+    chrome.runtime.sendMessage(
+      { type: "NEW_VIDEO", title: element.title },
+      (response) => {
+        if (response?.result === false) {
+          element.dom.style.display = "none";
+          filteredElements.set(element.dom, true);
+        }
+      },
+    );
+  });
+}
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "FOCUS_KEEPER_TOGGLE_NOTEPAD") {
@@ -1101,7 +997,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     sendResponse({ ok: true });
   }
 
+  if (message.type === "FOCUS_KEEPER_SET_FILTER") {
+    filterEnabled = Boolean(message.enabled);
+    if (!filterEnabled) {
+      filteredElements.forEach((_, dom) => { dom.style.display = ""; });
+    } else {
+      filteredElements.forEach((_, dom) => { dom.style.display = "none"; });
+      filterExistingVideos();
+    }
+    sendResponse({ ok: true });
+  }
+
   return false;
 });
 
 hydrateContentControls().catch((error) => console.error("Initial control sync failed:", error));
+hydrateFilterState().catch((error) => console.error("Initial filter sync failed:", error));
