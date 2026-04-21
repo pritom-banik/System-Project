@@ -1065,8 +1065,8 @@ const observer = new MutationObserver(() => {
           if (keepVideo === false) {
             const el = element.dom;
 
-            el.style.transition = "transform 0.4s ease, opacity 0.4s ease";
-            el.style.transform = "translateX(-100%)";
+            el.style.transition = "transform 1s ease, opacity 1s ease";
+            el.style.transform = "translateX(100%)";
             el.style.opacity = "0";
 
             setTimeout(() => {
