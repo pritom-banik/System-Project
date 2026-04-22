@@ -25,7 +25,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     console.log( message);
     (async () => {
       try {
-        const response = await fetch("http://localhost:8000/ans", {
+        const response = await fetch("http://localhost:90/ans", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
