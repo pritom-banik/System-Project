@@ -1,12 +1,20 @@
 const STORAGE_KEYS = {
   filterEnabled: "focusKeeper.filterEnabled",
+  focusSearch: "focusKeeper.focusSearch",
   hideComments: "focusKeeper.hideComments",
   hideSuggestions: "focusKeeper.hideSuggestions",
   theme: "focusKeeper.theme",
+  sessionAcc: "focusKeeper.session.acc",
+  sessionSeg: "focusKeeper.session.seg",
+  videoAcc: "focusKeeper.video.acc",
+  videoSeg: "focusKeeper.video.seg",
+  videoId: "focusKeeper.video.id",
+  videoTitle: "focusKeeper.video.title",
 };
 
 const DEFAULT_SETTINGS = {
   [STORAGE_KEYS.filterEnabled]: false,
+  [STORAGE_KEYS.focusSearch]: false,
   [STORAGE_KEYS.hideComments]: true,
   [STORAGE_KEYS.hideSuggestions]: false,
   [STORAGE_KEYS.theme]: "dark",
@@ -69,6 +77,7 @@ function applyTheme(theme) {
 
 function mapSwitchIdToStorage(id) {
   if (id === "sw-filter") return STORAGE_KEYS.filterEnabled;
+  if (id === "sw-focus-search") return STORAGE_KEYS.focusSearch;
   if (id === "sw-comments") return STORAGE_KEYS.hideComments;
   if (id === "sw-suggest") return STORAGE_KEYS.hideSuggestions;
   return null;
@@ -87,7 +96,7 @@ async function syncContentControls() {
   });
 }
 
-window.toggle = async function toggle(id) {
+async function toggleSwitch(id) {
   const storageKey = mapSwitchIdToStorage(id);
   if (!storageKey) return;
 
@@ -98,12 +107,14 @@ window.toggle = async function toggle(id) {
 
   if (id === "sw-filter") {
     await sendMessageToActiveTab({ type: "FOCUS_KEEPER_SET_FILTER", enabled: nextValue });
+  } else if (id === "sw-focus-search") {
+    await sendMessageToActiveTab({ type: "FOCUS_KEEPER_SET_FOCUS_SEARCH", enabled: nextValue });
   } else {
     await syncContentControls();
   }
 };
 
-window.doCapture = async function doCapture() {
+async function doCapture() {
   const button = document.getElementById("captureBtn");
   const label = document.getElementById("captureLabel");
   button.classList.add("capturing");
@@ -120,9 +131,63 @@ window.doCapture = async function doCapture() {
   }
 };
 
-window.openSettings = function openSettings() {
-  showStatus("Settings are coming soon. The note editor and content controls are ready to use.");
-};
+function formatTime(totalSeconds) {
+  const s = Math.floor(Math.max(0, totalSeconds));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+  return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+}
+
+function computeTimerSeconds(acc, seg) {
+  return (acc || 0) + (seg ? (Date.now() - seg) / 1000 : 0);
+}
+
+function setTimerStatus(statusId, isActive) {
+  const el = document.getElementById(statusId);
+  if (!el) return;
+  const dot = el.querySelector(".timer-status-dot");
+  const text = el.querySelector(".timer-status-text");
+  if (dot) dot.classList.toggle("active", isActive);
+  if (text) text.textContent = isActive ? "Active" : "Paused";
+}
+
+async function refreshTimers() {
+  const data = await getStorage([
+    STORAGE_KEYS.sessionAcc,
+    STORAGE_KEYS.sessionSeg,
+    STORAGE_KEYS.videoAcc,
+    STORAGE_KEYS.videoSeg,
+    STORAGE_KEYS.videoTitle,
+  ]);
+
+  const sessionEl = document.getElementById("timer-session-val");
+  const videoEl = document.getElementById("timer-video-val");
+  const videoTitleEl = document.getElementById("timer-video-title");
+
+  if (sessionEl) {
+    sessionEl.textContent = formatTime(
+      computeTimerSeconds(data[STORAGE_KEYS.sessionAcc], data[STORAGE_KEYS.sessionSeg])
+    );
+  }
+  if (videoEl) {
+    videoEl.textContent = formatTime(
+      computeTimerSeconds(data[STORAGE_KEYS.videoAcc], data[STORAGE_KEYS.videoSeg])
+    );
+  }
+  if (videoTitleEl) {
+    videoTitleEl.textContent = data[STORAGE_KEYS.videoTitle] || "No active video";
+  }
+
+  setTimerStatus("timer-session-status", Boolean(data[STORAGE_KEYS.sessionSeg]));
+  setTimerStatus("timer-video-status", Boolean(data[STORAGE_KEYS.videoSeg]));
+}
+
+async function resetTimer(accKey, segKey) {
+  const data = await getStorage([segKey]);
+  await setStorage({ [accKey]: 0, [segKey]: data[segKey] ? Date.now() : null });
+}
 
 document.addEventListener("DOMContentLoaded", async () => {
   const settings = await getStorage(Object.values(STORAGE_KEYS));
@@ -130,6 +195,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   applyTheme(merged[STORAGE_KEYS.theme]);
   updateSwitch("sw-filter", merged[STORAGE_KEYS.filterEnabled]);
+  updateSwitch("sw-focus-search", merged[STORAGE_KEYS.focusSearch]);
   updateSwitch("sw-comments", merged[STORAGE_KEYS.hideComments]);
   updateSwitch("sw-suggest", merged[STORAGE_KEYS.hideSuggestions]);
 
@@ -142,28 +208,42 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   document.getElementById("toggle-filter").addEventListener("click", () => {
-    window.toggle("sw-filter");
+    toggleSwitch("sw-filter");
+  });
+
+  document.getElementById("toggle-focus-search").addEventListener("click", () => {
+    toggleSwitch("sw-focus-search");
   });
 
   document.getElementById("toggle-comments").addEventListener("click", () => {
-    window.toggle("sw-comments");
+    toggleSwitch("sw-comments");
   });
 
   document.getElementById("toggle-suggest").addEventListener("click", () => {
-    window.toggle("sw-suggest");
+    toggleSwitch("sw-suggest");
   });
 
   document.getElementById("captureBtn").addEventListener("click", () => {
-    window.doCapture();
+    doCapture();
   });
 
-  document.getElementById("openSettingsBtn").addEventListener("click", () => {
-    window.openSettings();
+  document.getElementById("reset-session-btn").addEventListener("click", async () => {
+    await resetTimer(STORAGE_KEYS.sessionAcc, STORAGE_KEYS.sessionSeg);
+    await refreshTimers();
+  });
+
+  document.getElementById("reset-video-btn").addEventListener("click", async () => {
+    await resetTimer(STORAGE_KEYS.videoAcc, STORAGE_KEYS.videoSeg);
+    await refreshTimers();
   });
 
   document.getElementById("contactBtn").addEventListener("click", () => {
     showStatus("Reach us at: focuskeeper@example.com");
   });
+
+  await refreshTimers();
+  const timerInterval = setInterval(refreshTimers, 1000);
+  window.addEventListener("unload", () => clearInterval(timerInterval));
 
   await syncContentControls();
 });
