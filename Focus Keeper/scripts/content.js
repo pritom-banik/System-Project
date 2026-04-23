@@ -4,6 +4,7 @@ const FOCUS_KEEPER_STORAGE = {
   hideComments: "focusKeeper.hideComments",
   hideSuggestions: "focusKeeper.hideSuggestions",
   filterEnabled: "focusKeeper.filterEnabled",
+  focusSearch: "focusKeeper.focusSearch",
   theme: "focusKeeper.theme",
 };
 
@@ -14,6 +15,8 @@ let noteApp = null;
 let videoInfo = [];
 let saveTimer = null;
 let filterEnabled = false;
+let focusSearchEnabled = false;
+let currentTheme = "dark";
 const filteredElements = new Map();
 
 function getStorage(keys) {
@@ -813,10 +816,197 @@ async function hydrateFilterState() {
     FOCUS_KEEPER_STORAGE.theme,
   ]);
   filterEnabled = settings[FOCUS_KEEPER_STORAGE.filterEnabled] ?? false;
-  const theme = settings[FOCUS_KEEPER_STORAGE.theme] ?? "dark";
+  currentTheme = settings[FOCUS_KEEPER_STORAGE.theme] ?? "dark";
   if (noteApp?.root) {
-    noteApp.root.classList.toggle("fk-light", theme === "light");
+    noteApp.root.classList.toggle("fk-light", currentTheme === "light");
   }
+  applyFocusSearchTheme(currentTheme);
+}
+
+// ── FOCUS SEARCH ──────────────────────────────────────────────────────────────
+
+const FOCUS_SEARCH_OVERLAY_ID = "focus-keeper-search-overlay";
+const FOCUS_SEARCH_STYLE_ID = "focus-keeper-search-style";
+const FOCUS_SEARCH_CLASS = "fk-focus-search-active";
+
+function isYouTubeHomePage() {
+  return window.location.pathname === "/";
+}
+
+function injectFocusSearchStyles() {
+  if (document.getElementById(FOCUS_SEARCH_STYLE_ID)) return;
+  const style = document.createElement("style");
+  style.id = FOCUS_SEARCH_STYLE_ID;
+  style.textContent = `
+    html.${FOCUS_SEARCH_CLASS} ytd-app {
+      display: none !important;
+    }
+
+    #${FOCUS_SEARCH_OVERLAY_ID} {
+      display: none;
+    }
+
+    html.${FOCUS_SEARCH_CLASS} #${FOCUS_SEARCH_OVERLAY_ID} {
+      display: flex !important;
+      position: fixed;
+      inset: 0;
+      background: var(--fk-fs-bg);
+      z-index: 2147483646;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 28px;
+      font-family: "YouTube Sans", Roboto, Arial, sans-serif;
+    }
+
+    #${FOCUS_SEARCH_OVERLAY_ID} .fk-fs-logo {
+      font-size: 36px;
+      font-weight: 700;
+      letter-spacing: -1px;
+      user-select: none;
+    }
+
+    #${FOCUS_SEARCH_OVERLAY_ID} .fk-fs-logo-red  { color: #ff0000; }
+    #${FOCUS_SEARCH_OVERLAY_ID} .fk-fs-logo-white { color: var(--fk-fs-text); }
+
+    #${FOCUS_SEARCH_OVERLAY_ID} .fk-fs-bar {
+      display: flex;
+      align-items: center;
+      width: min(640px, calc(100vw - 40px));
+      height: 48px;
+      border: 1px solid var(--fk-fs-border);
+      border-radius: 24px;
+      background: var(--fk-fs-bar-bg);
+      overflow: hidden;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    #${FOCUS_SEARCH_OVERLAY_ID} .fk-fs-bar:focus-within {
+      border-color: var(--fk-fs-focus-border);
+      box-shadow: 0 0 0 1px var(--fk-fs-focus-ring);
+    }
+
+    #${FOCUS_SEARCH_OVERLAY_ID} .fk-fs-input {
+      flex: 1;
+      height: 100%;
+      padding: 0 20px;
+      border: none;
+      background: transparent;
+      color: var(--fk-fs-text);
+      font-size: 16px;
+      outline: none;
+      caret-color: var(--fk-fs-text);
+      font-family: inherit;
+    }
+
+    #${FOCUS_SEARCH_OVERLAY_ID} .fk-fs-input::placeholder { color: var(--fk-fs-placeholder); }
+
+    #${FOCUS_SEARCH_OVERLAY_ID} .fk-fs-btn {
+      height: 100%;
+      aspect-ratio: 1;
+      border: none;
+      border-left: 1px solid var(--fk-fs-border);
+      background: var(--fk-fs-btn-bg);
+      color: var(--fk-fs-text);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s;
+      flex-shrink: 0;
+    }
+
+    #${FOCUS_SEARCH_OVERLAY_ID} .fk-fs-btn:hover { background: var(--fk-fs-btn-hover); }
+
+    #${FOCUS_SEARCH_OVERLAY_ID} .fk-fs-hint {
+      font-size: 12px;
+      color: var(--fk-fs-hint);
+      letter-spacing: 0.02em;
+    }
+  `;
+  document.documentElement.appendChild(style);
+}
+
+// Sets CSS custom properties on <html> so every element in the overlay
+// picks them up instantly via var() — no cascade fight, no specificity issues.
+function applyFocusSearchTheme(theme) {
+  const r = document.documentElement;
+  const light = theme === "light";
+  r.style.setProperty("--fk-fs-bg",           light ? "#ffffff" : "#0f0f0f");
+  r.style.setProperty("--fk-fs-bar-bg",        light ? "#f2f2f2" : "#121212");
+  r.style.setProperty("--fk-fs-border",        light ? "#cccccc" : "#303030");
+  r.style.setProperty("--fk-fs-text",          light ? "#0f0f0f" : "#f1f1f1");
+  r.style.setProperty("--fk-fs-placeholder",   light ? "#909090" : "#717171");
+  r.style.setProperty("--fk-fs-btn-bg",        light ? "#f2f2f2" : "#222222");
+  r.style.setProperty("--fk-fs-btn-hover",     light ? "#e5e5e5" : "#383838");
+  r.style.setProperty("--fk-fs-hint",          light ? "#aaaaaa" : "#555555");
+  r.style.setProperty("--fk-fs-focus-border",  light ? "#1c62b9" : "#3ea6ff");
+  r.style.setProperty("--fk-fs-focus-ring",    light ? "rgba(28,98,185,.15)" : "rgba(62,166,255,.15)");
+}
+
+function ensureFocusSearchOverlay() {
+  if (document.getElementById(FOCUS_SEARCH_OVERLAY_ID)) return;
+
+  const overlay = document.createElement("div");
+  overlay.id = FOCUS_SEARCH_OVERLAY_ID;
+  overlay.innerHTML = `
+    <div class="fk-fs-logo">
+      <span class="fk-fs-logo-red">You</span><span class="fk-fs-logo-white">Tube</span>
+    </div>
+    <div class="fk-fs-bar">
+      <input class="fk-fs-input" id="fk-fs-input" type="text"
+             placeholder="Search YouTube" autocomplete="off" spellcheck="false">
+      <button class="fk-fs-btn" id="fk-fs-btn" type="button" aria-label="Search">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+          <path d="M20.87 20.17l-5.59-5.59C16.35 13.35 17 11.75 17 10c0-3.87-3.13-7-7-7s-7
+                   3.13-7 7 3.13 7 7 7c1.75 0 3.35-.65 4.58-1.71l5.59 5.59.7-.71zM10
+                   16c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"/>
+        </svg>
+      </button>
+    </div>
+    <span class="fk-fs-hint">Focus Search — distractions hidden on homepage</span>
+  `;
+
+  // Insert before ytd-app so it's a top-level body child
+  const ytdApp = document.querySelector("ytd-app");
+  document.body.insertBefore(overlay, ytdApp || document.body.firstChild);
+
+  const input = overlay.querySelector("#fk-fs-input");
+  const btn = overlay.querySelector("#fk-fs-btn");
+
+  function doSearch() {
+    const query = input.value.trim();
+    if (query) window.location.href = `/results?search_query=${encodeURIComponent(query)}`;
+  }
+
+  btn.addEventListener("click", doSearch);
+  input.addEventListener("keydown", (e) => {
+    e.stopPropagation();
+    if (e.key === "Enter") doSearch();
+  });
+  input.addEventListener("keyup", (e) => e.stopPropagation());
+}
+
+function applyFocusSearch() {
+  injectFocusSearchStyles();
+  applyFocusSearchTheme(currentTheme);
+
+  if (focusSearchEnabled && isYouTubeHomePage()) {
+    ensureFocusSearchOverlay();
+    document.documentElement.classList.add(FOCUS_SEARCH_CLASS);
+    // Wait for overlay to be visible then focus the input
+    requestAnimationFrame(() => {
+      document.getElementById("fk-fs-input")?.focus();
+    });
+  } else {
+    document.documentElement.classList.remove(FOCUS_SEARCH_CLASS);
+  }
+}
+
+async function hydrateFocusSearch() {
+  const settings = await getStorage([FOCUS_KEEPER_STORAGE.focusSearch]);
+  focusSearchEnabled = settings[FOCUS_KEEPER_STORAGE.focusSearch] ?? false;
+  applyFocusSearch();
 }
 
 // ── VIDEO FILTERING ───────────────────────────────────────────────────────────
@@ -891,6 +1081,7 @@ document.addEventListener("yt-navigate-finish", () => {
   if (noteApp?.root?.classList.contains("is-open")) {
     loadNotesIntoEditor().catch((error) => console.error("Failed to reload notes:", error));
   }
+  applyFocusSearch();
 });
 
 // ── MESSAGE HANDLERS ──────────────────────────────────────────────────────────
@@ -931,16 +1122,147 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === "FOCUS_KEEPER_SET_THEME") {
+    currentTheme = message.theme === "light" ? "light" : "dark";
     if (noteApp?.root) {
-      noteApp.root.classList.toggle("fk-light", message.theme === "light");
+      noteApp.root.classList.toggle("fk-light", currentTheme === "light");
     }
+    applyFocusSearchTheme(currentTheme);
+    applyFocusSearch();
+    sendResponse({ ok: true });
+  }
+
+  if (message.type === "FOCUS_KEEPER_SET_FOCUS_SEARCH") {
+    focusSearchEnabled = Boolean(message.enabled);
+    applyFocusSearch();
     sendResponse({ ok: true });
   }
 
   return false;
 });
 
+// ── TIMERS ───────────────────────────────────────────────────────────────────
+
+const TK = {
+  sessionAcc: "focusKeeper.session.acc",
+  sessionSeg: "focusKeeper.session.seg",
+  videoAcc: "focusKeeper.video.acc",
+  videoSeg: "focusKeeper.video.seg",
+  videoId: "focusKeeper.video.id",
+  videoTitle: "focusKeeper.video.title",
+};
+
+async function timerStart(accKey, segKey) {
+  const data = await getStorage([segKey]);
+  if (data[segKey]) return;
+  await setStorage({ [segKey]: Date.now() });
+}
+
+async function timerStop(accKey, segKey) {
+  const data = await getStorage([accKey, segKey]);
+  const seg = data[segKey];
+  if (!seg) return;
+  const elapsed = (Date.now() - seg) / 1000;
+  await setStorage({ [accKey]: (data[accKey] || 0) + elapsed, [segKey]: null });
+}
+
+function getCurrentVideoId() {
+  const url = new URL(window.location.href);
+  return url.searchParams.get("v");
+}
+
+function getCurrentVideoTitle() {
+  const fromPageTitle = document.title.replace(/\s*-\s*YouTube\s*$/, "").trim();
+  if (fromPageTitle && fromPageTitle !== "YouTube") return fromPageTitle;
+  return getYouTubeVideoTitle() || "Untitled video";
+}
+
+// Start the wall-clock timer for the current video.
+// If it's a new video, resets acc to 0. If the timer is already running for
+// the same video, does nothing — seg is never needlessly reset.
+async function videoTimerEnsureRunning() {
+  if (document.hidden) return;
+  const videoId = getCurrentVideoId();
+  if (!videoId) return;
+
+  const data = await getStorage([TK.videoAcc, TK.videoSeg, TK.videoId]);
+  const storedId = data[TK.videoId] || null;
+
+  if (storedId !== videoId) {
+    // New video: reset and start fresh
+    await setStorage({
+      [TK.videoAcc]: 0,
+      [TK.videoSeg]: Date.now(),
+      [TK.videoId]: videoId,
+      [TK.videoTitle]: getCurrentVideoTitle(),
+    });
+  } else if (!data[TK.videoSeg]) {
+    // Same video, timer was stopped (tab was hidden): resume
+    await setStorage({ [TK.videoSeg]: Date.now() });
+  }
+  // Same video, timer already running → do nothing
+}
+
+// Flush the running segment into acc and stop the timer.
+async function videoTimerStop() {
+  const data = await getStorage([TK.videoAcc, TK.videoSeg]);
+  const seg = data[TK.videoSeg];
+  if (!seg) return;
+  const elapsed = (Date.now() - seg) / 1000;
+  await setStorage({
+    [TK.videoAcc]: (data[TK.videoAcc] || 0) + elapsed,
+    [TK.videoSeg]: null,
+  });
+}
+
+// Attach a one-time 'play' listener to the YouTube <video> element.
+function attachVideoPlayListener() {
+  const video = document.querySelector("video");
+  if (!video || video.dataset.fkTimerAttached) return;
+  video.dataset.fkTimerAttached = "1";
+  video.addEventListener("play", () => {
+    videoTimerEnsureRunning().catch((e) => console.error("Video timer start failed:", e));
+  });
+}
+
+async function initSessionTimer() {
+  const data = await getStorage([TK.sessionAcc, TK.sessionSeg]);
+  let acc = data[TK.sessionAcc] || 0;
+  const stale = data[TK.sessionSeg];
+  if (stale) {
+    const elapsed = Date.now() - stale;
+    if (elapsed < 3600000) acc += elapsed / 1000;
+  }
+  const update = { [TK.sessionAcc]: acc, [TK.sessionSeg]: null };
+  if (!document.hidden) update[TK.sessionSeg] = Date.now();
+  await setStorage(update);
+
+  document.addEventListener("visibilitychange", async () => {
+    if (document.hidden) {
+      await timerStop(TK.sessionAcc, TK.sessionSeg);
+      await videoTimerStop();
+    } else {
+      await timerStart(TK.sessionAcc, TK.sessionSeg);
+      await videoTimerEnsureRunning();
+    }
+  });
+}
+
+document.addEventListener("yt-navigate-finish", () => {
+  const videoId = getCurrentVideoId();
+  if (videoId) {
+    // Give YouTube a moment to render the video element before attaching
+    setTimeout(attachVideoPlayListener, 500);
+    videoTimerEnsureRunning().catch((e) => console.error("Video timer sync failed:", e));
+  } else {
+    videoTimerStop().catch((e) => console.error("Video timer stop failed:", e));
+  }
+});
+
 // ── INIT ──────────────────────────────────────────────────────────────────────
 
 hydrateContentControls().catch((error) => console.error("Initial control sync failed:", error));
 hydrateFilterState().catch((error) => console.error("Initial filter sync failed:", error));
+hydrateFocusSearch().catch((error) => console.error("Initial focus search sync failed:", error));
+initSessionTimer().catch((error) => console.error("Session timer init failed:", error));
+videoTimerEnsureRunning().catch((error) => console.error("Initial video timer sync failed:", error));
+attachVideoPlayListener();
