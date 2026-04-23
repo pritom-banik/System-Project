@@ -45,6 +45,19 @@
         <div class="section">
             <div class="section-label">Content controls</div>
 
+            <div class="toggle-row" id="toggle-focus-search">
+                <div class="toggle-left">
+                    <div class="t-icon ic-focus-search">🔎</div>
+                    <div>
+                        <div class="t-title">Focus Search</div>
+                        <div class="t-sub">Blank homepage with centered search</div>
+                    </div>
+                </div>
+                <div class="switch" id="sw-focus-search">
+                    <div class="switch-thumb"></div>
+                </div>
+            </div>
+
             <div class="toggle-row" id="toggle-comments">
                 <div class="toggle-left">
                     <div class="t-icon ic-comment">💬</div>
@@ -82,12 +95,56 @@
             </button>
         </div>
 
-        <!-- Open settings -->
+        <!-- Timers -->
         <div class="section">
-            <div class="settings-row" id="openSettingsBtn">
-                <div class="t-icon ic-settings" style="width:26px;height:26px;border-radius:7px;">⚙️</div>
-                <span>Settings &amp; preferences</span>
-                <span class="chevron">›</span>
+            <div class="section-label">Timers</div>
+
+            <div class="timer-panel">
+                <div class="timer-panel-heading">
+                    <div>
+                        <div class="timer-panel-title">Watch rhythm</div>
+                        <div class="timer-panel-subtitle">A compact read on your current YouTube time</div>
+                    </div>
+                </div>
+
+                <div class="timer-grid">
+                    <div class="timer-card timer-card-session">
+                        <div class="timer-card-topline">
+                            <div class="timer-card-badge">
+                                <div class="t-icon ic-session">⏱</div>
+                                <span>Session</span>
+                            </div>
+                            <button class="timer-reset-btn" id="reset-session-btn" title="Reset session timer" aria-label="Reset session timer">↺</button>
+                        </div>
+                        <div class="timer-big-value" id="timer-session-val">00:00</div>
+                        <div class="timer-card-meta">
+                            <div class="timer-status" id="timer-session-status">
+                                <span class="timer-status-dot"></span>
+                                <span class="timer-status-text">Paused</span>
+                            </div>
+                            <span class="timer-caption">Across this tab</span>
+                        </div>
+                    </div>
+
+                    <div class="timer-card timer-card-video">
+                        <div class="timer-card-topline">
+                            <div class="timer-card-badge">
+                                <div class="t-icon ic-video-play">▶</div>
+                                <span>Time spent</span>
+                            </div>
+                            <button class="timer-reset-btn" id="reset-video-btn" title="Reset video timer" aria-label="Reset video timer">↺</button>
+                        </div>
+                        <div class="timer-video-title" id="timer-video-title">No active video</div>
+                        <div class="timer-big-value" id="timer-video-val">00:00</div>
+                        <div class="timer-card-meta">
+                            <div class="timer-status" id="timer-video-status">
+                                <span class="timer-status-dot"></span>
+                                <span class="timer-status-text">Paused</span>
+                            </div>
+                            <span class="timer-caption">Incl. paused time</span>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
