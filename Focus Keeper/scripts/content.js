@@ -1086,7 +1086,7 @@ document.addEventListener("yt-navigate-finish", () => {
 
 // ── MESSAGE HANDLERS ──────────────────────────────────────────────────────────
 
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === "FOCUS_KEEPER_TOGGLE_NOTEPAD") {
     toggleNotepad()
       .then(() => sendResponse({ ok: true }))
@@ -1142,22 +1142,29 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 // ── TIMERS ───────────────────────────────────────────────────────────────────
 
-const TK = {
-  sessionAcc: "focusKeeper.session.acc",
-  sessionSeg: "focusKeeper.session.seg",
-  videoAcc: "focusKeeper.video.acc",
-  videoSeg: "focusKeeper.video.seg",
-  videoId: "focusKeeper.video.id",
-  videoTitle: "focusKeeper.video.title",
-};
+let MY_TAB_ID = null;
+let TK = null;
 
-async function timerStart(accKey, segKey) {
+function makeTK(tabId) {
+  return {
+    sessionAcc: `focusKeeper.session.acc.${tabId}`,
+    sessionSeg: `focusKeeper.session.seg.${tabId}`,
+    videoAcc:   `focusKeeper.video.acc.${tabId}`,
+    videoSeg:   `focusKeeper.video.seg.${tabId}`,
+    videoId:    `focusKeeper.video.id.${tabId}`,
+    videoTitle: `focusKeeper.video.title.${tabId}`,
+  };
+}
+
+async function timerStart(_accKey, segKey) {
+  if (!TK) return;
   const data = await getStorage([segKey]);
   if (data[segKey]) return;
   await setStorage({ [segKey]: Date.now() });
 }
 
 async function timerStop(accKey, segKey) {
+  if (!TK) return;
   const data = await getStorage([accKey, segKey]);
   const seg = data[segKey];
   if (!seg) return;
@@ -1180,7 +1187,7 @@ function getCurrentVideoTitle() {
 // If it's a new video, resets acc to 0. If the timer is already running for
 // the same video, does nothing — seg is never needlessly reset.
 async function videoTimerEnsureRunning() {
-  if (document.hidden) return;
+  if (!TK || document.hidden) return;
   const videoId = getCurrentVideoId();
   if (!videoId) return;
 
@@ -1204,6 +1211,7 @@ async function videoTimerEnsureRunning() {
 
 // Flush the running segment into acc and stop the timer.
 async function videoTimerStop() {
+  if (!TK) return;
   const data = await getStorage([TK.videoAcc, TK.videoSeg]);
   const seg = data[TK.videoSeg];
   if (!seg) return;
@@ -1225,6 +1233,7 @@ function attachVideoPlayListener() {
 }
 
 async function initSessionTimer() {
+  if (!TK) return;
   const data = await getStorage([TK.sessionAcc, TK.sessionSeg]);
   let acc = data[TK.sessionAcc] || 0;
   const stale = data[TK.sessionSeg];
@@ -1263,6 +1272,12 @@ document.addEventListener("yt-navigate-finish", () => {
 hydrateContentControls().catch((error) => console.error("Initial control sync failed:", error));
 hydrateFilterState().catch((error) => console.error("Initial filter sync failed:", error));
 hydrateFocusSearch().catch((error) => console.error("Initial focus search sync failed:", error));
-initSessionTimer().catch((error) => console.error("Session timer init failed:", error));
-videoTimerEnsureRunning().catch((error) => console.error("Initial video timer sync failed:", error));
 attachVideoPlayListener();
+
+chrome.runtime.sendMessage({ type: "GET_TAB_ID" }, (response) => {
+  MY_TAB_ID = response?.tabId;
+  if (!MY_TAB_ID) { console.error("Focus Keeper: failed to get tab ID"); return; }
+  TK = makeTK(MY_TAB_ID);
+  initSessionTimer().catch((error) => console.error("Session timer init failed:", error));
+  videoTimerEnsureRunning().catch((error) => console.error("Initial video timer sync failed:", error));
+});
