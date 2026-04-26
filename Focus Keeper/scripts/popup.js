@@ -4,13 +4,17 @@ const STORAGE_KEYS = {
   hideComments: "focusKeeper.hideComments",
   hideSuggestions: "focusKeeper.hideSuggestions",
   theme: "focusKeeper.theme",
-  sessionAcc: "focusKeeper.session.acc",
-  sessionSeg: "focusKeeper.session.seg",
-  videoAcc: "focusKeeper.video.acc",
-  videoSeg: "focusKeeper.video.seg",
-  videoId: "focusKeeper.video.id",
-  videoTitle: "focusKeeper.video.title",
 };
+
+function getTimerKeys(tabId) {
+  return {
+    sessionAcc: `focusKeeper.session.acc.${tabId}`,
+    sessionSeg: `focusKeeper.session.seg.${tabId}`,
+    videoAcc:   `focusKeeper.video.acc.${tabId}`,
+    videoSeg:   `focusKeeper.video.seg.${tabId}`,
+    videoTitle: `focusKeeper.video.title.${tabId}`,
+  };
+}
 
 const DEFAULT_SETTINGS = {
   [STORAGE_KEYS.filterEnabled]: false,
@@ -154,34 +158,22 @@ function setTimerStatus(statusId, isActive) {
 }
 
 async function refreshTimers() {
-  const data = await getStorage([
-    STORAGE_KEYS.sessionAcc,
-    STORAGE_KEYS.sessionSeg,
-    STORAGE_KEYS.videoAcc,
-    STORAGE_KEYS.videoSeg,
-    STORAGE_KEYS.videoTitle,
-  ]);
+  const tab = await getActiveTab();
+  if (!tab?.id) return;
+  const tk = getTimerKeys(tab.id);
+
+  const data = await getStorage([tk.sessionAcc, tk.sessionSeg, tk.videoAcc, tk.videoSeg, tk.videoTitle]);
 
   const sessionEl = document.getElementById("timer-session-val");
   const videoEl = document.getElementById("timer-video-val");
   const videoTitleEl = document.getElementById("timer-video-title");
 
-  if (sessionEl) {
-    sessionEl.textContent = formatTime(
-      computeTimerSeconds(data[STORAGE_KEYS.sessionAcc], data[STORAGE_KEYS.sessionSeg])
-    );
-  }
-  if (videoEl) {
-    videoEl.textContent = formatTime(
-      computeTimerSeconds(data[STORAGE_KEYS.videoAcc], data[STORAGE_KEYS.videoSeg])
-    );
-  }
-  if (videoTitleEl) {
-    videoTitleEl.textContent = data[STORAGE_KEYS.videoTitle] || "No active video";
-  }
+  if (sessionEl) sessionEl.textContent = formatTime(computeTimerSeconds(data[tk.sessionAcc], data[tk.sessionSeg]));
+  if (videoEl) videoEl.textContent = formatTime(computeTimerSeconds(data[tk.videoAcc], data[tk.videoSeg]));
+  if (videoTitleEl) videoTitleEl.textContent = data[tk.videoTitle] || "No active video";
 
-  setTimerStatus("timer-session-status", Boolean(data[STORAGE_KEYS.sessionSeg]));
-  setTimerStatus("timer-video-status", Boolean(data[STORAGE_KEYS.videoSeg]));
+  setTimerStatus("timer-session-status", Boolean(data[tk.sessionSeg]));
+  setTimerStatus("timer-video-status", Boolean(data[tk.videoSeg]));
 }
 
 async function resetTimer(accKey, segKey) {
@@ -228,12 +220,20 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   document.getElementById("reset-session-btn").addEventListener("click", async () => {
-    await resetTimer(STORAGE_KEYS.sessionAcc, STORAGE_KEYS.sessionSeg);
+    const tab = await getActiveTab();
+    if (tab?.id) {
+      const tk = getTimerKeys(tab.id);
+      await resetTimer(tk.sessionAcc, tk.sessionSeg);
+    }
     await refreshTimers();
   });
 
   document.getElementById("reset-video-btn").addEventListener("click", async () => {
-    await resetTimer(STORAGE_KEYS.videoAcc, STORAGE_KEYS.videoSeg);
+    const tab = await getActiveTab();
+    if (tab?.id) {
+      const tk = getTimerKeys(tab.id);
+      await resetTimer(tk.videoAcc, tk.videoSeg);
+    }
     await refreshTimers();
   });
 

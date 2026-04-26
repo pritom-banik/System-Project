@@ -1,4 +1,9 @@
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === "GET_TAB_ID") {
+    sendResponse({ tabId: sender.tab.id });
+    return false;
+  }
+
   if (message.type === "VIDEO_TITLE") {
     (async () => {
       try {
@@ -20,7 +25,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === "NEW_VIDEO") {
     console.log( message);
     (async () => {
